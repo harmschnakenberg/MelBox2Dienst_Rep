@@ -215,16 +215,17 @@
       <DependentUpon>ProjectInstaller.cs</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RouteBlockPolicy.cs" />
-    <Compile Include="RouteCustomer.cs" />
+    <Compile Include="RoutesBlockPolicy.cs" />
+    <Compile Include="RoutesMasterData.cs" />
     <Compile Include="Routes.cs" />
     <Compile Include="Server.cs" />
     <Compile Include="SqlBasic.cs" />
     <Compile Include="SqlCustomer.cs" />
+    <Compile Include="SqlGuard.cs" />
     <Compile Include="SqlMessage.cs" />
     <Compile Include="SqlCreate.cs" />
-    <Compile Include="SqlRecieved.cs" />
-    <Compile Include="SqlSent.cs" />
+    <Compile Include="SqlService.cs" />
+    <Compile Include="SqlLog.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

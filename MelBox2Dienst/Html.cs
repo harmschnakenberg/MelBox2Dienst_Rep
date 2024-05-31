@@ -166,7 +166,7 @@ namespace MelBox2Dienst
             for (int i = 0; i <= 24; i++)
                 sb.AppendLine($"<option value='{i}' {(selectedValue2 == i ? "selected" : "")}>{i} Uhr</option>");
 
-            sb.AppendLine("</select>");            
+            sb.AppendLine("</select>");
             sb.AppendLine("</div>");
 
             return sb.ToString();
@@ -219,7 +219,7 @@ namespace MelBox2Dienst
             {
                 html += "<tr>";
                 for (int j = 0; j < dt.Columns.Count; j++)
-                {                   
+                {
                     if (links.ContainsKey(dt.Columns[j].ColumnName))
                         html += $"<td><a class='btn btn-primary' href='/{links[dt.Columns[j].ColumnName]}?{dt.Columns[j].ColumnName}={dt.Rows[i][j]}'>{dt.Rows[i][j]}</a></td>";
                     else
@@ -230,7 +230,7 @@ namespace MelBox2Dienst
             html += "</table>";
             return html;
         }
-  
+
         /// <summary>
         /// Zeigt eine Sperregel in einem Formular an.
         /// </summary>
@@ -247,7 +247,7 @@ namespace MelBox2Dienst
                 $" <textarea class='form-control' id='comment' name='Comment'>{dt.Rows[0]["Comment"]}</textarea>\r\n" +
                 "<span class='badge'>Weiterleitung gesperrt</span>" +
                 $" <input type='hidden' name='Id' value='{dt.Rows[0]["Id"]}'>" +
-                " <div class=\"input-group mb-3\">" +              
+                " <div class=\"input-group mb-3\">" +
                     SelectFieledHour("Mo", "MonStart", "MonEnd", int.Parse(dt.Rows[0]["MonStart"].ToString()), int.Parse(dt.Rows[0]["MonEnd"].ToString())) +
                     SelectFieledHour("Di", "TueStart", "TueEnd", int.Parse(dt.Rows[0]["TueStart"].ToString()), int.Parse(dt.Rows[0]["ThuEnd"].ToString())) +
                     SelectFieledHour("Mi", "WenStart", "WenEnd", int.Parse(dt.Rows[0]["WenStart"].ToString()), int.Parse(dt.Rows[0]["WenEnd"].ToString())) +
@@ -276,7 +276,87 @@ namespace MelBox2Dienst
                 "  }\r\n" +
                 "}" +
                 "</script>" +
-            "</form>\r\n";           
+            "</form>\r\n";
+            return form;
+        }
+
+
+
+        #endregion
+
+        #region Formularansichten
+
+        /// <summary>
+        /// Formular zum Ändern der Stammdaten eines Kunden
+        /// </summary>
+        /// <param name="dt"></param>
+        /// <returns></returns>
+        public static string CustomerForm(DataTable dt)
+        {
+            if (dt == null || dt.Rows.Count == 0) return "<span class='badge bg-danger'>Kunde unbekannt</span>";
+
+            string form =
+                "<h4>Kundenstammdaten</h4>" +
+                "<form action='/customer/update' method='post'>\r\n" +
+                $" <input type='hidden' name='Id' value='{dt.Rows[0]["Id"]}'>" +
+                "<div class='input-group mb-3'>" +
+                " <span class='input-group-text'>Name</span>" +
+                $"<input type='text' name='Name' class='form-control' placeholder='Anzeigename des Kunden' value='{dt.Rows[0]["Name"]}' required>\r\n" +
+                "</div>\r\n" +
+                "<div class='input-group mb-3'>" +
+                " <span class='input-group-text'>Kontakt</span>" +
+                $"<input type='text' name='Phone' class='form-control' placeholder='Mobilnummer (SMS)' value='{dt.Rows[0]["Mobil"]}'>\r\n" +
+                $"<input type='text' name='Email' class='form-control' placeholder='E-Mail-Adresse' value='{dt.Rows[0]["Email"]}'>\r\n" +
+                "</div>\r\n" +
+                "<div class='input-group mb-3'>" +
+                " <span class='input-group-text'>Kennung</span>" +
+                $"<input type='text' name='KeyWord' class='form-control' placeholder='Identifizierung, wenn Rufnummer nicht übertragen wird' value='{dt.Rows[0]["Kennung"]}' readonly>\r\n" +
+                "</div>\r\n" +
+                "<div class='input-group mb-3'>" +
+                " <span class='input-group-text'>Maximale Inaktivität</span>" +
+                $"<input type='number' name='MaxInactiveHours' class='form-control' value='{dt.Rows[0]["Max_Inaktiv"]}' step='12' min='0'>\r\n" +
+                "<span class='input-group-text'>Stunden</span>" +
+                "<span class='input-group-text text-secondary'>Geht nach dieser Zeit keine Nachricht von diesem Kontakt ein, wird davon ausgegengen, dass die Meldelinie unterbrochen ist.</span>" +
+                "</div>\r\n" +
+
+                "<div class='btn-group'>\r\n" +
+                "  <button type='submit' class='btn btn-primary'>Ändern</button>\r\n" +
+                "  <button type='submit' class='btn btn-secondary' formaction='/customer/create'>Neu erstellen</button>\r\n" +
+                "  <button type='submit' class='btn btn-secondary' formaction='/customer/delete'>Stammdaten l&ouml;schen</button>\r\n" +
+                "</div>\r\n" +
+            "</form>\r\n";
+            return form;
+        }
+
+        /// <summary>
+        /// Formular zum Ändern der Stammdaten eines Bereitshcaftsmitarbeiters
+        /// </summary>
+        /// <param name="dt"></param>
+        /// <returns></returns>
+        public static string ServiceForm(DataTable dt)
+        {
+            if (dt == null || dt.Rows.Count == 0) return "<span class='badge bg-danger'>Mitarbeiter unbekannt</span>";
+
+            string form =
+                "<h4>Mitarbeiterstammdaten</h4>" +
+                "<form action='/service/update' method='post'>\r\n" +
+               $" <input type='hidden' name='Id' value='{dt.Rows[0]["Id"]}'>" +
+                " <div class='input-group mb-3'>" +
+                "  <span class='input-group-text'>Name</span>" +
+               $"  <input type='text' name='Name' class='form-control' placeholder='Anzeigename des Kollegen' value='{dt.Rows[0]["Name"]}' required>\r\n" +
+                " </div>\r\n" +
+                " <div class='input-group mb-3'>" +
+                "  <span class='input-group-text'>Kontakt</span>" +
+               $"  <input type='text' name='Phone' class='form-control' placeholder='Mobilnummer (SMS)' value='{dt.Rows[0]["Mobil"]}'>\r\n" +
+               $"  <input type='text' name='Email' class='form-control' placeholder='E-Mail-Adresse' value='{dt.Rows[0]["Email"]}'>\r\n" +
+                " </div>\r\n" +
+
+                "<div class='btn-group'>\r\n" +
+                "  <button type='submit' class='btn btn-primary'>Ändern</button>\r\n" +
+                "  <button type='submit' class='btn btn-secondary' formaction='/service/create'>Neu erstellen</button>\r\n" +
+                "  <button type='submit' class='btn btn-secondary' formaction='/service/delete'>Stammdaten l&ouml;schen</button>\r\n" +
+                "</div>\r\n" +
+            "</form>\r\n";
             return form;
         }
 
@@ -335,45 +415,150 @@ namespace MelBox2Dienst
             return form;
         }
 
-        public static string CustomerForm(DataTable dt)
+        public static string GuardCalender(DataTable dt)
         {
-            if (dt == null || dt.Rows.Count == 0) return "<span class='badge bg-danger'>Kunde unbekannt</span>";
+            string html = "<table class='table table-striped text-center'>";
 
-            string form = 
-                "<h4>Kundenstammdaten</h4>" +
-                "<form action='/customer/update' method='post'>\r\n" +               
-                $" <input type='hidden' name='Id' value='{dt.Rows[0]["Id"]}'>" +
-                "<div class='input-group mb-3'>" +
-                " <span class='input-group-text'>Name</span>" +
-                $"<input type='text' name='Name' class='form-control' placeholder='Anzeigename des Kunden' value='{dt.Rows[0]["Name"]}' required>\r\n" +
-                "</div>\r\n" +
-                "<div class='input-group mb-3'>" +
-                " <span class='input-group-text'>Kontakt</span>" +
-                $"<input type='text' name='Phone' class='form-control' placeholder='Mobilnummer (SMS)' value='{dt.Rows[0]["Mobil"]}'>\r\n" +
-                $"<input type='text' name='Email' class='form-control' placeholder='E-Mail-Adresse' value='{dt.Rows[0]["Email"]}'>\r\n" +
-                "</div>\r\n" +
-                "<div class='input-group mb-3'>" +
-                " <span class='input-group-text'>Kennung</span>" +
-                $"<input type='text' name='KeyWord' class='form-control' placeholder='Identifizierung, wenn Rufnummer nicht übertragen wird' value='{dt.Rows[0]["Kennung"]}' readonly>\r\n" +
-                "</div>\r\n" +
-                "<div class='input-group mb-3'>" +
-                " <span class='input-group-text'>Maximale Inaktivität</span>" +
-                $"<input type='number' name='MaxInactiveHours' class='form-control' value='{dt.Rows[0]["Max_Inaktiv"]}' step='12' min='0'>\r\n" +
-                "<span class='input-group-text'>Stunden</span>" +
-                "<span class='input-group-text text-secondary'>Geht nach dieser Zeit keine Nachricht von diesem Kontakt ein, wird davon ausgegengen, dass die Meldelinie unterbrochen ist.</span>" +
-                "</div>\r\n" +
+            //add header row
+            html += "<tr>";
+            for (int i = 0; i < dt.Columns.Count; i++)
+                if (dt.Columns[i].ColumnName != "ServiceId")
+                    html += "<th>" + dt.Columns[i].ColumnName + "</th>";
+            html += "</tr>";
 
-                "<div class='btn-group'>\r\n" +
-                "  <button type='submit' class='btn btn-primary'>Ändern</button>\r\n" +
-                "  <button type='submit' class='btn btn-secondary' formaction='/customer/create'>Neu erstellen</button>\r\n" +
-                "  <button type='submit' class='btn btn-secondary' formaction='/customer/delete'>Stammdaten l&ouml;schen</button>\r\n" +
-                "</div>\r\n" +   
-            "</form>\r\n";
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                html += "<tr>";
+
+                //Id
+                if (dt.Rows[i]["Id"] == null)
+                    html += $"<td><a class='btn btn-primary btn-sm' href='?datum={dt.Rows[i]["Beginn"]}'><i class='fa fa-edit'></i></a></td>";
+                else
+                    html += $"<td><a class='btn btn-primary btn-sm' href='?id={dt.Rows[i]["Id"]}'><i class='fa fa-edit'></i></a></td>";
+
+                //html += $"<td>{dt.Rows[i]["ServiceId"]}</td>";
+
+                //Name
+                if (dt.Rows[i]["Name"] == null)
+                    html += $"<td>&nbsp;</td>";
+                else
+                    html += $"<td><a class='btn btn-sm' href='/service?id={dt.Rows[i]["ServiceId"]}'>{dt.Rows[i]["Name"]}</a></td>";
+
+                //Daten
+                html += $"<td>{DateTime.Parse(dt.Rows[i]["Beginn"].ToString()).ToShortDateString()}</td>";
+
+                if (DateTime.TryParse(dt.Rows[i]["Ende"].ToString(), out DateTime endDate))
+                    html += $"<td>{endDate.ToShortDateString()}</td>";
+                else
+                    html += "<td>&nbsp;</td>";
+
+                html += $"<td>{dt.Rows[i]["KW"]}</td>";
+
+                //Tage
+                html += GuardTableDayCol(dt.Rows[i]["Mo"]);
+                html += GuardTableDayCol(dt.Rows[i]["Di"]);
+                html += GuardTableDayCol(dt.Rows[i]["Mi"]);
+                html += GuardTableDayCol(dt.Rows[i]["Do"]);
+                html += GuardTableDayCol(dt.Rows[i]["Fr"]);
+                html += GuardTableDayCol(dt.Rows[i]["Sa"]);
+                html += GuardTableDayCol(dt.Rows[i]["So"]);
+
+                html += "</tr>";
+            }
+
+            html += "</table>";
+
+            return html;
+        }
+
+        private static string GuardTableDayCol(object dayValue)
+        {
+            DateTime.TryParse(dayValue.ToString().TrimEnd('x'), out DateTime h);
+
+            bool weekend = h.DayOfWeek == DayOfWeek.Sunday || h.DayOfWeek == DayOfWeek.Saturday;
+            bool holyday = HttpHelper.IsHolyday(h);
+            bool isAssigned = dayValue.ToString().EndsWith("x");
+
+            StringBuilder sb = new StringBuilder();
+            sb.Append($"<td class='{(holyday ? "bg-danger" : (weekend ? "bg-secondary" : string.Empty))}'>"); //
+            sb.Append($"<span class='badge rounded-pill {(isAssigned ? "bg-info" : string.Empty)}'>{h.Day:00}.</span>");
+            sb.Append("</td>");
+
+            return sb.ToString();
+        }
+
+        public static string GuardForm(DataTable dt)
+        {
+            if (dt == null || dt.Rows.Count == 0) return "<span class='badge bg-danger'>Bereitschafseinteilung unbekannt</span>";
+
+            string form =
+                    "<h4>Bereitschaft einteilen</h4>" +
+                    "<form action='/guard/update' method='post'>\r\n" +
+                   $" <input type='hidden' name='Id' value='{dt.Rows[0]["Id"]}'>" +
+                    " <div class='input-group mb-3'>" +
+                    "  <span class='input-group-text'>Name</span>" +
+                   $"  <input class='form-control' list='names' name='Name' id='Name' value='{dt.Rows[0]["Name"]}'>\r\n" +
+                    "  <datalist id='names'>\r\n" +
+                    ServiceNameList() +
+                    //"    <option value=\"Edge\">\r\n" +
+                    //"    <option value=\"Firefox\">\r\n" +
+                    //"  <option value=\"Chrome\">\r\n" +
+                    //"  <option value=\"Opera\">\r\n" +
+                    //"  <option value=\"Safari\">\r\n" +
+                    "  </datalist>" +
+
+                    //$"  <input type='text' name='Name' class='form-control' placeholder='Anzeigename des Kollegen' value='{dt.Rows[0]["Name"]}' required>\r\n" +
+                    // " </div>\r\n" +
+
+                    ///*
+                    // *  Shift.Id AS Id, 
+                    //strftime(Time, 'localtime') AS Stand, 
+                    //ToId AS ServiceId, 
+                    //Service.Name AS Name, 
+                    //Start AS Beginn,
+                    //End AS Ende
+                    //FROM Shift 
+                    //JOIN Service 
+                    //ON Shift.ToId = Service.Id
+
+                    //                    */
+                    "</div>\r\n" +
+                    " <div class='input-group mb-3'>" +
+                    "  <span class='input-group-text'>von</span>" +
+                    $"<input type='date' value='{dt.Rows[0]["Beginn"]}'>" +
+                    "  <span class='input-group-text'>bis</span>" +
+                    $"<input type='date' value='{dt.Rows[0]["Ende"]}'>" +
+                     //$"<div>Stand {dt.Rows[0]["Stand"]}</div>" +
+
+                     "</div>\r\n" +
+
+                    "<div class='btn-group'>\r\n" +
+                    "  <button type='submit' class='btn btn-secondary'>&Auml;ndern</button>\r\n" +
+                    "  <button type='submit' class='btn btn-primary' formaction='/guard/create'>Neu erstellen</button>\r\n" +
+                    "  <button type='submit' class='btn btn-secondary' formaction='/guard/delete'>Einteilung l&ouml;schen</button>\r\n" +
+                    "</div>\r\n" +
+                    "</form>\r\n";
             return form;
         }
 
+        /// <summary>
+        /// Liste aller potentillen Empfänger
+        /// </summary>
+        /// <returns></returns>
+        private static string ServiceNameList()
+        {
+            Dictionary<uint, string> names = Sql.ServiceNames();
+
+            StringBuilder sb = new StringBuilder();
+
+            foreach (var name in names)
+            {
+                sb.AppendLine($"<option value='{name.Value}'>");
+            }
+
+            return sb.ToString();
+        }
 
         #endregion
-
     }
 }

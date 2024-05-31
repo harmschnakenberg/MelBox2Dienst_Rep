@@ -10,38 +10,34 @@ namespace MelBox2Dienst
 {
     internal static partial class Sql
     {
-        internal static DataTable SelectAllCustomers()
-        {            
+        internal static DataTable SelectAllService()
+        {
             return Sql.SelectDataTable(
                 @"SELECT Id, 
                 Name, 
                 Phone AS Mobil, 
-                Email,
-                KeyWord AS Kennung,
-                MaxInactiveHours AS Max_Inaktiv
-                FROM Customer                         
+                Email
+                FROM Service 
                 ORDER BY Name;", null);
         }
 
-        internal static DataTable SelectCustomerById(uint customerId)
+        internal static DataTable SelectServiceById(uint serviceId)
         {
             Dictionary<string, object> args = new Dictionary<string, object>
             {
-                { "@Id", customerId }
+                { "@Id", serviceId }
             };
 
             return Sql.SelectDataTable(
                 @"SELECT Id, 
                 Name, 
                 Phone AS Mobil, 
-                Email,
-                KeyWord AS Kennung,
-                MaxInactiveHours AS Max_Inaktiv
-                FROM Customer                         
-                WHERE Id = @Id;", args);            
+                Email
+                FROM Service 
+                WHERE Id = @Id;", args);
         }
 
-        internal static DataTable SelectCustomerByName(string namepart)
+        internal static DataTable SelectServiceByName(string namepart)
         {
             Dictionary<string, object> args = new Dictionary<string, object>
             {
@@ -52,18 +48,35 @@ namespace MelBox2Dienst
                 @"SELECT Id, 
                 Name, 
                 Phone AS Mobil, 
-                Email,
-                KeyWord AS Kennung,
-                MaxInactiveHours AS Max_Inaktiv
-                FROM Customer                         
+                Email                
+                FROM Service                       
                 WHERE Name LIKE %@Name%;", args);
         }
 
+        internal static Dictionary<uint, string> ServiceNames()
+        {
+            Dictionary<uint, string> dict = new Dictionary<uint, string>();
+
+            DataTable dt = Sql.SelectDataTable(
+                @"SELECT 
+                Id, 
+                Name                                
+                FROM Service;", null);
+
+            for (int x = 0; x < dt.Rows.Count; x++)
+            {
+                uint.TryParse(dt.Rows[x][0].ToString(), out uint id);
+
+                dict.Add(id, dt.Rows[x][1].ToString());
+            }
+            return dict;
+        }
+
         /// <summary>
-        /// Erzeugt neue Stammdaten eines Kunden
+        /// Erzeugt neue Stammdaten eines Mitarbeiters
         /// </summary>
         /// <param name="form"></param>
-        internal static void CreateCustomer(Dictionary<string, string> form)
+        internal static void CreateService(Dictionary<string, string> form)
         {
 #if DEBUG
             foreach (var key in form.Keys)
@@ -75,24 +88,22 @@ namespace MelBox2Dienst
             {
                 { "@Name", WebUtility.UrlDecode(form["Name"]) },
                 { "@Phone", '+' + WebUtility.UrlDecode(form["Phone"].TrimStart('+').Replace(" ", "")) },
-                { "@Email", WebUtility.UrlDecode(form["Email"]) },
-                { "@KeyWord", WebUtility.UrlDecode(form["KeyWord"]) },
-                { "@MaxInactiveHours", form["MaxInactiveHours"] }
+                { "@Email", WebUtility.UrlDecode(form["Email"]) }
             };
 
             _ = Sql.NonQuery(
-                @"INSERT INTO Customer ( 
-                Name, Phone, Email, Keyword, MaxInactiveHours
+                @"INSERT INTO Service ( 
+                Name, Phone, Email
                 ) VALUES ( 
-                @Name, @Phone, @Email, @Keyword, @MaxInactiveHours 
+                @Name, @Phone, @Email 
                 );", args);
         }
 
         /// <summary>
-        /// Ändert vorhandene Stammdaten eines Kunden
+        /// Ändert vorhandene Stammdaten eines Mitarbeiters
         /// </summary>
         /// <param name="form"></param>
-        internal static void UpdateCustomer(Dictionary<string, string> form)
+        internal static void UpdateService(Dictionary<string, string> form)
         {
 #if DEBUG
             foreach (var key in form.Keys)
@@ -104,27 +115,23 @@ namespace MelBox2Dienst
             {
                 { "@Id", form["Id"] },
                 { "@Name", WebUtility.UrlDecode(form["Name"]) },
-                { "@Phone",'+' + WebUtility.UrlDecode(form["Phone"].TrimStart('+').Replace(" ", "")) },
-                { "@Email", WebUtility.UrlDecode(form["Email"]) },
-                { "@KeyWord", WebUtility.UrlDecode(form["KeyWord"]) },
-                { "@MaxInactiveHours", form["MaxInactiveHours"] }
+                { "@Phone", '+' + WebUtility.UrlDecode(form["Phone"].TrimStart('+').Replace(" ", "")) },
+                { "@Email", WebUtility.UrlDecode(form["Email"]) }               
             };
 
             _ = Sql.NonQuery(
-                @"Update Customer SET 
+                @"Update Service SET 
                 Name = @Name,
                 Phone = @Phone,
-                Email = @Email,
-                KeyWord = @KeyWord,
-                MaxInactiveHours = @MaxInactiveHours
+                Email = @Email              
                 WHERE Id = @Id;", args);
         }
-               
+
         /// <summary>
-        /// Löscht vorhandene Stammdaten eines Kunden
+        /// Löscht vorhandene Stammdaten eines Mitarbeiters
         /// </summary>
         /// <param name="form"></param>
-        internal static void DeleteCustomer(Dictionary<string, string> form)
+        internal static void DeleteService(Dictionary<string, string> form)
         {
             Dictionary<string, object> args = new Dictionary<string, object>
             {
@@ -132,7 +139,7 @@ namespace MelBox2Dienst
             };
 
             _ = Sql.NonQuery(
-                @"DELETE FROM Customer WHERE Id = @Id;", args);
+                @"DELETE FROM Service WHERE Id = @Id;", args);
         }
 
     }

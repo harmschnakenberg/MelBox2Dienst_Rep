@@ -66,7 +66,7 @@ namespace MelBox2Dienst
                 {
                     html +=
                         Html.ConvertDataTable(Sql.SelectMessageByRecievedId(recId)) +
-                        Html.BlockPolicySelection(Sql.SelectAllBlockPolicies(), Sql.SelectBlockPolicyFromRecievedId(recId), Sql.SelectMessageIdByRecievedId(recId));
+                        Html.BlockPolicySelection(Sql.SelectAllBlockPolicies(), Sql.SelectBlockPolicyIdFromRecievedId(recId), Sql.SelectMessageIdByRecievedId(recId));
                 }
                 #endregion
             }
@@ -141,14 +141,50 @@ namespace MelBox2Dienst
         }
 
 
+        [RestRoute("Get", "/guard")]
+        public static async Task GuradOverview(IHttpContext context)
+        {
+            #region Filter setzen
+            DateTime date = DateTime.Now.Date;
+            DataTable dataTable = new DataTable();
+            string html = string.Empty;
+
+            if (!context.Request.QueryString.HasKeys())
+            {
+                dataTable = Sql.SelectAllGuards();
+                html += Html.GuardCalender(dataTable);
+            }
+            else if (uint.TryParse(context.Request.QueryString.Get("id"), out uint shiftId))
+            {
+                dataTable = Sql.SelectGuardById(shiftId);
+                html += Html.GuardForm(dataTable);
+            }
+            //else if (context.Request.QueryString.Get("datum").Length > 0 && DateTime.TryParse(context.Request.QueryString.Get("datum"), out date))
+            //{
+            //    if (date.CompareTo(DateTime.Now.AddYears(-10)) < 0) date = DateTime.Now.Date; //Älter als 10 Jahre = ungültig
+            //    if (date.CompareTo(DateTime.Now) > 0) date = DateTime.Now.Date; //Die Zukunft ist noch nicht bestimmt
+
+            //    dataTable = Sql.SelectLog(date);
+            //}
+            #endregion
+#if DEBUG
+            Console.WriteLine(date);
+#endif
+
+            await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
+        }
+
+
+
+
 
         [RestRoute]
         public static async Task Home(IHttpContext context)
         {
-
             string html = Html.Sceleton("<h1>Upps.. den Pfad gibt es nicht..</h1>");
 
             await context.Response.SendResponseAsync(html).ConfigureAwait(false);
         }
+
     }
 }
