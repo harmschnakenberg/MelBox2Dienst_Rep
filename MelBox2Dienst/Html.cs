@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace MelBox2Dienst
 {
@@ -417,63 +418,78 @@ namespace MelBox2Dienst
 
         public static string GuardCalender(DataTable dt)
         {
+          
             string html = "<table class='table table-striped text-center'>";
-
-            //add header row
-            html += "<tr>";
-            for (int i = 0; i < dt.Columns.Count; i++)
-                if (dt.Columns[i].ColumnName != "ServiceId")
-                    html += "<th>" + dt.Columns[i].ColumnName + "</th>";
-            html += "</tr>";
-
-            for (int i = 0; i < dt.Rows.Count; i++)
+            try
             {
+                //add header row
                 html += "<tr>";
-
-                //Id
-                if (dt.Rows[i]["Id"] == null)
-                    html += $"<td><a class='btn btn-primary btn-sm' href='?datum={dt.Rows[i]["Beginn"]}'><i class='fa fa-edit'></i></a></td>";
-                else
-                    html += $"<td><a class='btn btn-primary btn-sm' href='?id={dt.Rows[i]["Id"]}'><i class='fa fa-edit'></i></a></td>";
-
-                //html += $"<td>{dt.Rows[i]["ServiceId"]}</td>";
-
-                //Name
-                if (dt.Rows[i]["Name"] == null)
-                    html += $"<td>&nbsp;</td>";
-                else
-                    html += $"<td><a class='btn btn-sm' href='/service?id={dt.Rows[i]["ServiceId"]}'>{dt.Rows[i]["Name"]}</a></td>";
-
-                //Daten
-                html += $"<td>{DateTime.Parse(dt.Rows[i]["Beginn"].ToString()).ToShortDateString()}</td>";
-
-                if (DateTime.TryParse(dt.Rows[i]["Ende"].ToString(), out DateTime endDate))
-                    html += $"<td>{endDate.ToShortDateString()}</td>";
-                else
-                    html += "<td>&nbsp;</td>";
-
-                html += $"<td>{dt.Rows[i]["KW"]}</td>";
-
-                //Tage
-                html += GuardTableDayCol(dt.Rows[i]["Mo"]);
-                html += GuardTableDayCol(dt.Rows[i]["Di"]);
-                html += GuardTableDayCol(dt.Rows[i]["Mi"]);
-                html += GuardTableDayCol(dt.Rows[i]["Do"]);
-                html += GuardTableDayCol(dt.Rows[i]["Fr"]);
-                html += GuardTableDayCol(dt.Rows[i]["Sa"]);
-                html += GuardTableDayCol(dt.Rows[i]["So"]);
-
+                for (int i = 0; i < dt.Columns.Count; i++)
+                    if (dt.Columns[i].ColumnName != "ServiceId")
+                        html += "<th>" + dt.Columns[i].ColumnName + "</th>";
                 html += "</tr>";
+
+                for (int i = 0; i < dt.Rows.Count; i++)
+                {
+                    html += "<tr>";
+
+                    //Id
+                    if (dt.Rows[i]["Id"].ToString().Length < 1 && DateTime.TryParse(dt.Rows[i]["Beginn"]?.ToString(), out DateTime startTime))
+                        html += $"<td><a class='btn btn-primary btn-sm' href='/guard?datum={startTime:yyyy-MM-dd}'><i class='fa fa-edit'></i></a></td>";
+                    else
+                        html += $"<td><a class='btn btn-primary btn-sm' href='/guard?id={dt.Rows[i]["Id"]}'><i class='fa fa-edit'></i></a></td>";
+
+                    //html += $"<td>{dt.Rows[i]["ServiceId"]}</td>";
+
+                    //Name
+                    if (dt.Rows[i]["Name"] == null)
+                        html += $"<td>&nbsp;</td>";
+                    else
+                        html += $"<td><a class='btn btn-sm' href='/service?id={dt.Rows[i]["ServiceId"]}'>{dt.Rows[i]["Name"]}</a></td>";
+
+                    //Daten
+                    if (DateTime.TryParse(dt.Rows[i]["Beginn"]?.ToString(), out startTime))
+                        html += $"<td>{startTime.ToShortDateString()}</td>";
+                    else
+                        html += $"<td>&nbsp;</td>";
+
+                    if (DateTime.TryParse(dt.Rows[i]["Ende"].ToString(), out DateTime endDate))
+                        html += $"<td>{endDate.ToShortDateString()}</td>";
+                    else
+                        html += "<td>&nbsp;</td>";
+
+                    html += $"<td>{dt.Rows[i]["KW"]}</td>";
+
+                    //Tage
+                    html += GuardTableDayCol(dt.Rows[i]["Mo"]);
+                    html += GuardTableDayCol(dt.Rows[i]["Di"]);
+                    html += GuardTableDayCol(dt.Rows[i]["Mi"]);
+                    html += GuardTableDayCol(dt.Rows[i]["Do"]);
+                    html += GuardTableDayCol(dt.Rows[i]["Fr"]);
+                    html += GuardTableDayCol(dt.Rows[i]["Sa"]);
+                    html += GuardTableDayCol(dt.Rows[i]["So"]);
+
+                    html += "</tr>";
+                }
+
+                html += "</table>";
             }
-
-            html += "</table>";
-
-            return html;
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            
+            
+                return html;
+            
         }
 
         private static string GuardTableDayCol(object dayValue)
         {
-            DateTime.TryParse(dayValue.ToString().TrimEnd('x'), out DateTime h);
+            if(!DateTime.TryParse(dayValue?.ToString().TrimEnd('x'), out DateTime h))
+            {
+                return $"<td>???</td>";
+            }
 
             bool weekend = h.DayOfWeek == DayOfWeek.Sunday || h.DayOfWeek == DayOfWeek.Saturday;
             bool holyday = HttpHelper.IsHolyday(h);
@@ -487,76 +503,150 @@ namespace MelBox2Dienst
             return sb.ToString();
         }
 
-        public static string GuardForm(DataTable dt)
+        public static string GuardFormUpdate(DataTable dt)
         {
             if (dt == null || dt.Rows.Count == 0) return "<span class='badge bg-danger'>Bereitschafseinteilung unbekannt</span>";
+
+            _ = uint.TryParse(dt.Rows[0]["Id"].ToString(), out uint guardId);
+            _ = DateTime.TryParse(dt.Rows[0]["Beginn"].ToString(), out DateTime start);
+            _ = DateTime.TryParse(dt.Rows[0]["Ende"].ToString(), out DateTime end);
+            start = start.ToLocalTime();
+            end = end.ToLocalTime();
+
+            //  Shift.Id AS Id, 
+            //strftime(Time, 'localtime') AS Stand, 
+            //ToId AS ServiceId, 
+            //Service.Name AS Name, 
+            //Start AS Beginn,
+            //End AS Ende
+            //FROM Shift 
+            //JOIN Service 
+            //ON Shift.ToId = Service.Id
 
             string form =
                     "<h4>Bereitschaft einteilen</h4>" +
                     "<form action='/guard/update' method='post'>\r\n" +
-                   $" <input type='hidden' name='Id' value='{dt.Rows[0]["Id"]}'>" +
+                   $"<div class='text-muted'>Stand {dt.Rows[0]["Stand"]}</div>" +
+                   $" <input type='hidden' name='Id' value='{guardId}'>" +
                     " <div class='input-group mb-3'>" +
                     "  <span class='input-group-text'>Name</span>" +
-                   $"  <input class='form-control' list='names' name='Name' id='Name' value='{dt.Rows[0]["Name"]}'>\r\n" +
-                    "  <datalist id='names'>\r\n" +
-                    ServiceNameList() +
-                    //"    <option value=\"Edge\">\r\n" +
-                    //"    <option value=\"Firefox\">\r\n" +
-                    //"  <option value=\"Chrome\">\r\n" +
-                    //"  <option value=\"Opera\">\r\n" +
-                    //"  <option value=\"Safari\">\r\n" +
-                    "  </datalist>" +
+                   $"  <input class='form-control' list='serviceNames' name='Name' id='ServiceName' placeholder='Anzeigename des Kollegen' value='{dt.Rows[0]["Name"]}' onchange='findId(this.value)' required>\r\n" +
+                   $"  <input class='form-control bg-warning' name='ServiceId' id='ServiceId' value='{dt.Rows[0]["ServiceId"]}'>\r\n" +
+                     "<datalist id='serviceNames'>" +
+                        ServiceNameListOptions() +
+                     "</datalist>" +
+                    //TODO: automatische Ergänzung Service-Id mit javascript?
+                   
+                     "<script>\r\n" +
+                        "function findId(val) {\r\n" +
+                        "  var x = document.getElementById('serviceNames');\r\n" +
+                        "  var i;\r\n" +
+                        "  for (i = 0; i < x.options.length; i++) {\r\n" +
+                        "    if (x.options[i].value == val) {\r\n" +
+                        "      document.getElementById('ServiceId').value = x.options[i].id;\r\n" +
+                        "      break;\r\n"+
+                        "    }\r\n"+
+                        "  }\r\n"+
+                        "}\r\n" +
+                        "function mint(id, val){\r\n" +
+                        " document.getElementById(id).min = val;\r\n" +
+                        "}\r\n" +
+                        "function maxt(id, val){\r\n" +
+                        " document.getElementById(id).max = val;\r\n" +
+                        "}\r\n" +
+                    "</script>\r\n" +
 
-                    //$"  <input type='text' name='Name' class='form-control' placeholder='Anzeigename des Kollegen' value='{dt.Rows[0]["Name"]}' required>\r\n" +
-                    // " </div>\r\n" +
-
-                    ///*
-                    // *  Shift.Id AS Id, 
-                    //strftime(Time, 'localtime') AS Stand, 
-                    //ToId AS ServiceId, 
-                    //Service.Name AS Name, 
-                    //Start AS Beginn,
-                    //End AS Ende
-                    //FROM Shift 
-                    //JOIN Service 
-                    //ON Shift.ToId = Service.Id
-
-                    //                    */
                     "</div>\r\n" +
                     " <div class='input-group mb-3'>" +
                     "  <span class='input-group-text'>von</span>" +
-                    $"<input type='date' value='{dt.Rows[0]["Beginn"]}'>" +
+                    $"<input type='date' name='StartDate' id='StartDate' value='{start:yyyy-MM-dd}' max='{end:yyyy-MM-dd}' onchange='mint(\"EndDate\", this.value);'>" +
+                    $"<input type='time' name='StartTime' value='{start:HH:mm}'>" +
                     "  <span class='input-group-text'>bis</span>" +
-                    $"<input type='date' value='{dt.Rows[0]["Ende"]}'>" +
-                     //$"<div>Stand {dt.Rows[0]["Stand"]}</div>" +
+                    $"<input type='date' name='EndDate' id='EndDate' value='{end:yyyy-MM-dd}' min='{start:yyyy-MM-dd}' onchange='maxt(\"StartDate\", this.value);'>" +
+                    $"<input type='time' name='EndTime' value='{end:HH:mm}'>" +
+                    "</div>\r\n" +
 
-                     "</div>\r\n" +
-
-                    "<div class='btn-group'>\r\n" +
-                    "  <button type='submit' class='btn btn-secondary'>&Auml;ndern</button>\r\n" +
-                    "  <button type='submit' class='btn btn-primary' formaction='/guard/create'>Neu erstellen</button>\r\n" +
-                    "  <button type='submit' class='btn btn-secondary' formaction='/guard/delete'>Einteilung l&ouml;schen</button>\r\n" +
+                    "<div class='btn-group'>\r\n" +          
+                    "<button type='submit' class='btn btn-primary'>&Auml;ndern</button>\r\n" +
+                    "<button type='submit' class='btn btn-secondary' formaction='/guard/create'>Neu erstellen</button>\r\n" +       
+                    "<button type='submit' class='btn btn-secondary' formaction='/guard/delete'>Einteilung l&ouml;schen</button>\r\n" +
                     "</div>\r\n" +
                     "</form>\r\n";
             return form;
         }
 
+        public static string GuardFormNew(DateTime start, uint serviceId, string serviceName)
+        {
+            #region Uhrzeiten vorauswählen
+            start = start.Date; // 0 Uhr
+
+            switch (start.DayOfWeek)
+            {
+                case DayOfWeek.Saturday:
+                case DayOfWeek.Sunday:      
+                    // nichts machen
+                    break;
+                case DayOfWeek.Friday:
+                    start = start.AddHours(15);
+                    break;
+                default:
+                    start = start.AddHours(17);
+                    break;
+            }
+
+            DateTime end = start.AddDays(7).Date.AddHours(7);
+
+            #endregion
+
+            string form =
+                    "<h4>Bereitschaft einteilen</h4>" +
+                    "<form action='/guard/create' method='post'>\r\n" +
+                    " <div class='input-group mb-3'>" +
+                    "  <span class='input-group-text'>Name</span>" +
+                   $"  <input class='form-control' list='serviceNames' name='Name' id='ServiceName' placeholder='Anzeigename des Kollegen' value='{serviceName}' onchange='u(this.options)' required>\r\n" +
+                   $"  <input class='form-control bg-warning' name='ServiceId' id='ServiceId' value='{serviceId}'>\r\n" +
+                        "<datalist id='serviceNames'>" +
+                        ServiceNameListOptions() +
+                        "</datalist>" +
+                        "<script>\r\n" +
+                        "function u(){" +
+                        "}" +
+                        "</script>\r\n" +
+                    //TODO: automatische Ergänzung Service-Id?
+                    "</div>\r\n" +
+                    " <div class='input-group mb-3'>" +
+                    "  <span class='input-group-text'>von</span>" +
+                    $"<input type='date' name='StartDate' value='{start:yyyy-MM-dd}'>" +
+                    $"<input type='time' name='StartTime' value='{start:HH:mm}'>" +
+                    "  <span class='input-group-text'>bis</span>" +
+                    $"<input type='date' name='EndDate'value='{end:yyyy-MM-dd}'>" +
+                    $"<input type='time' name='EndTime' value='{end:HH:mm}'>" +
+                    "</div>\r\n" +
+
+                    "<div class='btn-group'>\r\n";
+   
+                form += "<button type='submit' class='btn btn-primary' formaction='/guard/create'>Neu erstellen</button>\r\n";
+
+            form += "</div>\r\n" +
+                    "</form>\r\n";
+            return form;
+        }
+
+
         /// <summary>
         /// Liste aller potentillen Empfänger
         /// </summary>
         /// <returns></returns>
-        private static string ServiceNameList()
+        private static string ServiceNameListOptions()
         {
             Dictionary<uint, string> names = Sql.ServiceNames();
 
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sbNames = new StringBuilder();
 
-            foreach (var name in names)
-            {
-                sb.AppendLine($"<option value='{name.Value}'>");
-            }
-
-            return sb.ToString();
+            foreach (var name in names)            
+                sbNames.AppendLine($"<option id='{name.Key}' value='{name.Value}'>");
+            
+            return sbNames.ToString();
         }
 
         #endregion

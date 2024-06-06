@@ -157,15 +157,15 @@ namespace MelBox2Dienst
             else if (uint.TryParse(context.Request.QueryString.Get("id"), out uint shiftId))
             {
                 dataTable = Sql.SelectGuardById(shiftId);
-                html += Html.GuardForm(dataTable);
+                html += Html.GuardFormUpdate(dataTable);
             }
-            //else if (context.Request.QueryString.Get("datum").Length > 0 && DateTime.TryParse(context.Request.QueryString.Get("datum"), out date))
-            //{
-            //    if (date.CompareTo(DateTime.Now.AddYears(-10)) < 0) date = DateTime.Now.Date; //Älter als 10 Jahre = ungültig
-            //    if (date.CompareTo(DateTime.Now) > 0) date = DateTime.Now.Date; //Die Zukunft ist noch nicht bestimmt
+            else if (context.Request.QueryString.Get("datum").Length > 0 && DateTime.TryParse(context.Request.QueryString.Get("datum"), out date))
+            {
+                if (date.CompareTo(DateTime.Now.AddYears(-10)) < 0) date = DateTime.Now.Date; //Älter als 10 Jahre = ungültig
+                if (date.CompareTo(DateTime.Now) > 0) date = DateTime.Now.Date; //Die Zukunft ist noch nicht bestimmt
 
-            //    dataTable = Sql.SelectLog(date);
-            //}
+                html += Html.GuardFormNew(date, 0, "TEST"); //Übergabe der Service-Person
+            }
             #endregion
 #if DEBUG
             Console.WriteLine(date);
@@ -174,8 +174,29 @@ namespace MelBox2Dienst
             await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Ändert die Stammdaten eines Kunden in der Datenbank von einem Formular
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        [RestRoute("Post", "/guard/update")]
+        public async Task UpdateGuard(IHttpContext context)
+        {
+            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
+            Sql.UpdateGuard(formContent);
 
+            context.Request.QueryString.Add("id", formContent["Id"]);
+            await GuradOverview(context);
+        }
 
+        [RestRoute("Post", "/guard/create")]
+        public async Task CreateGuard(IHttpContext context)
+        {
+            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
+            Sql.CreateGuard(formContent);
+
+            await GuradOverview(context);
+        }
 
 
         [RestRoute]

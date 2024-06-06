@@ -169,12 +169,19 @@ namespace MelBox2Dienst
                 #region Views erstellen
 
                 query = "CREATE VIEW ViewYearFromToday AS " +
-                      "SELECT CASE(CAST(strftime('%w', d) AS INT) +6) % 7 WHEN 0 THEN 'Mo' WHEN 1 THEN 'Di' WHEN 2 THEN 'Mi' WHEN 3 THEN 'Do' WHEN 4 THEN 'Fr' WHEN 5 THEN 'Sa' ELSE 'So' END AS Tag, d FROM(WITH RECURSIVE dates(d) AS(VALUES(date('now')) " +
+                      "SELECT CASE(CAST(strftime('%w', d) AS INT) +6) % 7 WHEN 0 THEN 'Mo' WHEN 1 THEN 'Di' WHEN 2 THEN 'Mi' WHEN 3 THEN 'Do' WHEN 4 THEN 'Fr' WHEN 5 THEN 'Sa' ELSE 'So' END AS Tag, d, strftime('%W', d) AS KW FROM(WITH RECURSIVE dates(d) AS(VALUES(date('now')) " +
                       "UNION ALL " +
                       "SELECT date(d, '+1 day') FROM dates WHERE d<date('now', '+1 year')) SELECT d FROM dates ) WHERE d NOT IN(SELECT date(Start) FROM Shift WHERE date(Start) >= date('now') " +
                       "); ";
                 NonQuery(query, null);
 
+                query = "CREATE VIEW View_AllShiftDays AS " +
+                        "SELECT d " +
+                        "FROM ViewYearFromToday " +
+                        "JOIN Shift ON d BETWEEN Date(Start) AND Date(End) " +
+                        "GROUP BY d " +
+                        "ORDER BY d";
+                NonQuery(query, null);
 
                 query = "CREATE VIEW View_Sent AS " +
                         "SELECT strftime('%Y-%m-%d %H:%M:%S', ls.Time, 'localtime') AS Gesendet, s.Name AS An, Content AS Inhalt, Reference AS Ref, " +
@@ -185,31 +192,44 @@ namespace MelBox2Dienst
                 query = "CREATE VIEW View_Recieved AS SELECT r.Id As Nr, strftime('%Y-%m-%d %H:%M:%S', r.Time, 'localtime') AS Empfangen, Name AS Von, Content AS Inhalt, BlockPolicyId AS Sperregel FROM Recieved AS r JOIN Customer AS c ON SenderId = c.Id JOIN Message AS m ON r.ContentId = m.Id;";
                 NonQuery(query, null);
 
-                query = "CREATE VIEW View_Calendar AS " +
-                       "SELECT s.Id, p.Id AS ServiceId, p.name, s.Start, s.End, strftime('%W', s.Start) AS KW, " +
-                       "DATE(s.Start, 'localtime', 'weekday 6', '-5 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '-5 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Mo,  " +
-                       "DATE(s.Start, 'localtime', 'weekday 6', '-4 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '-4 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Di,  " +
-                       "DATE(s.Start, 'localtime', 'weekday 6', '-3 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '-3 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Mi,  " +
-                       "DATE(s.Start, 'localtime', 'weekday 6', '-2 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '-2 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Do,  " +
-                       "DATE(s.Start, 'localtime', 'weekday 6', '-1 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '-1 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Fr,  " +
-                       "DATE(s.Start, 'localtime', 'weekday 6', '-0 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '+0 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Sa,  " +
-                       "DATE(s.Start, 'localtime', 'weekday 6', '+1 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '+1 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS So " +
-                       "FROM Shift AS s JOIN Service p ON s.ToId = p.Id WHERE s.End > date('now', '-1 day') " +
-                       "ORDER BY Start; ";
-                NonQuery(query, null);
+                //query = "CREATE VIEW View_Calendar AS " +
+                //       "SELECT s.Id, p.Id AS ServiceId, p.name, s.Start, s.End, strftime('%W', s.Start) AS KW, " +
+                //       "DATE(s.Start, 'localtime', 'weekday 6', '-5 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '-5 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Mo,  " +
+                //       "DATE(s.Start, 'localtime', 'weekday 6', '-4 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '-4 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Di,  " +
+                //       "DATE(s.Start, 'localtime', 'weekday 6', '-3 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '-3 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Mi,  " +
+                //       "DATE(s.Start, 'localtime', 'weekday 6', '-2 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '-2 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Do,  " +
+                //       "DATE(s.Start, 'localtime', 'weekday 6', '-1 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '-1 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Fr,  " +
+                //       "DATE(s.Start, 'localtime', 'weekday 6', '-0 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '+0 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS Sa,  " +
+                //       "DATE(s.Start, 'localtime', 'weekday 6', '+1 days') || CASE WHEN DATE(s.Start, 'localtime', 'weekday 6', '+1 days') BETWEEN DATE(s.Start) AND DATE(s.End) THEN 'x' ELSE '' END AS So " +
+                //       "FROM Shift AS s JOIN Service p ON s.ToId = p.Id WHERE s.End > date('now', '-1 day') " +
+                //       "ORDER BY Start; ";
+                //NonQuery(query, null);
 
-                query = "CREATE VIEW View_Calendar_Full AS " +
-                        "SELECT * FROM View_Calendar " +
-                        "UNION " +
-                        "SELECT NULL AS Id, NULL AS ServiceId, NULL AS Name, DATETIME(d, 'weekday 1') AS Start, NULL AS End, " +
-                        "strftime('%W', d) AS KW, " +
-                        "date(d, 'weekday 1') || CASE WHEN date(d, 'weekday 1') IN(SELECT DATE(Shift.End) FROM Shift WHERE strftime('%w', Shift.End) = '1') THEN 'x' ELSE '' END AS Mo,  " + //Montage markieren, wenn sie das Ende einer Bereitschaft sind
-                        "date(d, 'weekday 2') AS Di, date(d, 'weekday 3') AS Mi, " +
-                        "date(d, 'weekday 4') AS Do, date(d, 'weekday 5') AS Fr, date(d, 'weekday 6') AS Sa, date(d, 'weekday 0') AS So " +
-                        "FROM(WITH RECURSIVE dates(d) AS(VALUES(date('now')) UNION ALL " +
-                        "SELECT date(d, '+4 day', 'weekday 1') FROM dates WHERE d < date('now', '+1 year')) SELECT d FROM dates) " +
-                        "WHERE KW NOT IN(SELECT KW FROM View_Calendar WHERE date(Start) >= date('now', '-7 day', 'weekday 1') ) " +
-                        "ORDER BY Start; ";
+                //query = "CREATE VIEW View_Calendar_Full AS " +
+                //        "SELECT * FROM View_Calendar " +
+                //        "UNION " +
+                //        "SELECT NULL AS Id, NULL AS ServiceId, NULL AS Name, DATETIME(d, 'weekday 1') AS Start, NULL AS End, " +
+                //        "strftime('%W', d) AS KW, " +
+                //        "date(d, 'weekday 1') || CASE WHEN date(d, 'weekday 1') IN(SELECT DATE(Shift.End) FROM Shift WHERE strftime('%w', Shift.End) = '1') THEN 'x' ELSE '' END AS Mo,  " + //Montage markieren, wenn sie das Ende einer Bereitschaft sind
+                //        "date(d, 'weekday 2') AS Di, date(d, 'weekday 3') AS Mi, " +
+                //        "date(d, 'weekday 4') AS Do, date(d, 'weekday 5') AS Fr, date(d, 'weekday 6') AS Sa, date(d, 'weekday 0') AS So " +
+                //        "FROM(WITH RECURSIVE dates(d) AS(VALUES(date('now')) UNION ALL " +
+                //        "SELECT date(d, '+4 day', 'weekday 1') FROM dates WHERE d < date('now', '+1 year')) SELECT d FROM dates) " +
+                //        "WHERE KW NOT IN(SELECT KW FROM View_Calendar WHERE date(Start) >= date('now', '-7 day', 'weekday 1') ) " +
+                //        "ORDER BY Start; ";
+
+                query = "CREATE VIEW View_Calendar_Full AS " + 
+                    @"SELECT     
+                    s.Id, p.Id AS ServiceId, p.name, s.Start, s.End, strftime('%W', d, 'weekday 4') AS KW, 
+                    DATE(d, 'localtime', 'weekday 6', '-5 days') || CASE WHEN DATE(d, 'localtime', 'weekday 6', '-5 days') in (SELECT d FROM View_AllShiftDays) THEN 'x' ELSE '' END AS Mo,
+                    DATE(d, 'localtime', 'weekday 6', '-4 days') || CASE WHEN DATE(d, 'localtime', 'weekday 6', '-4 days') in (SELECT d FROM View_AllShiftDays) THEN 'x' ELSE '' END AS Di, 
+                    DATE(d, 'localtime', 'weekday 6', '-3 days') || CASE WHEN DATE(d, 'localtime', 'weekday 6', '-3 days') in (SELECT d FROM View_AllShiftDays) THEN 'x' ELSE '' END AS Mi,
+                    DATE(d, 'localtime', 'weekday 6', '-2 days') || CASE WHEN DATE(d, 'localtime', 'weekday 6', '-2 days') in (SELECT d FROM View_AllShiftDays) THEN 'x' ELSE '' END AS Do,
+                    DATE(d, 'localtime', 'weekday 6', '-1 days') || CASE WHEN DATE(d, 'localtime', 'weekday 6', '-1 days') in (SELECT d FROM View_AllShiftDays) THEN 'x' ELSE '' END AS Fr,
+                    DATE(d, 'localtime', 'weekday 6', '-0 days') || CASE WHEN DATE(d, 'localtime', 'weekday 6', '-0 days') in (SELECT d FROM View_AllShiftDays) THEN 'x' ELSE '' END AS Sa, 
+                    DATE(d, 'localtime', 'weekday 6', '+1 days') || CASE WHEN DATE(d, 'localtime', 'weekday 6', '+1 days') in (SELECT d FROM View_AllShiftDays) THEN 'x' ELSE '' END AS So 
+                    FROM ViewYearFromToday LEFT JOIN Shift AS s ON strftime('%W%Y', s.Start) = strftime('%W%Y', d) LEFT JOIN Service p ON s.ToId = p.Id  GROUP BY KW 
+                    ORDER BY d , s.Start";
                 NonQuery(query, null);
 
 
