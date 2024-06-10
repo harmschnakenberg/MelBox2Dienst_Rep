@@ -1,7 +1,10 @@
 ﻿using System;
+using System.CodeDom;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -416,28 +419,44 @@ namespace MelBox2Dienst
             return form;
         }
 
+
         public static string GuardCalender(DataTable dt)
         {
-          
+
+            List<uint> ServiceIds = new List<uint>(dt.Rows.Count);
+            foreach (DataRow row in dt.Rows)
+                if (!row.IsNull("ServiceId") && uint.TryParse(row["ServiceId"].ToString(), out uint serviceId))
+                    ServiceIds.Add(serviceId);
+
+            //ToDo: Zugewiesene Farbe für Empfänger ermitteln und Kalender entsprechen einfärben
+
             string html = "<table class='table table-striped text-center'>";
             try
             {
-                //add header row
+
+                //Kopfzeile
                 html += "<tr>";
                 for (int i = 0; i < dt.Columns.Count; i++)
                     if (dt.Columns[i].ColumnName != "ServiceId")
                         html += "<th>" + dt.Columns[i].ColumnName + "</th>";
                 html += "</tr>";
 
+                //Tabelleninhalt
                 for (int i = 0; i < dt.Rows.Count; i++)
                 {
+                    _ = uint.TryParse(dt.Rows[i]["Id"].ToString(), out uint guardId);
+                    _ = uint.TryParse(dt.Rows[i]["ServiceId"].ToString(), out uint serviceId);
+                    _ = DateTime.TryParse(dt.Rows[i]["Mo"]?.ToString().Substring(0,10), out DateTime monday);
+
+                   // Console.WriteLine("Montag ist " + monday);
+
                     html += "<tr>";
 
                     //Id
-                    if (dt.Rows[i]["Id"].ToString().Length < 1 && DateTime.TryParse(dt.Rows[i]["Beginn"]?.ToString(), out DateTime startTime))
-                        html += $"<td><a class='btn btn-primary btn-sm' href='/guard?datum={startTime:yyyy-MM-dd}'><i class='fa fa-edit'></i></a></td>";
+                    if (guardId != 0)
+                        html += $"<td><a class='btn btn-primary btn-sm' href='/guard?id={guardId}'><i class='fa fa-edit'></i></a></td>";                   
                     else
-                        html += $"<td><a class='btn btn-primary btn-sm' href='/guard?id={dt.Rows[i]["Id"]}'><i class='fa fa-edit'></i></a></td>";
+                        html += $"<td><a class='btn btn-primary btn-sm' href='/guard?datum={monday:yyyy-MM-dd}'><i class='fa fa-edit'></i></a></td>";
 
                     //html += $"<td>{dt.Rows[i]["ServiceId"]}</td>";
 
@@ -445,11 +464,11 @@ namespace MelBox2Dienst
                     if (dt.Rows[i]["Name"] == null)
                         html += $"<td>&nbsp;</td>";
                     else
-                        html += $"<td><a class='btn btn-sm' href='/service?id={dt.Rows[i]["ServiceId"]}'>{dt.Rows[i]["Name"]}</a></td>";
+                        html += $"<td class='text-start'><a class='btn btn-sm ' href='/service?id={serviceId}'>{dt.Rows[i]["Name"]}</a></td>";
 
                     //Daten
-                    if (DateTime.TryParse(dt.Rows[i]["Beginn"]?.ToString(), out startTime))
-                        html += $"<td>{startTime.ToShortDateString()}</td>";
+                    if (DateTime.TryParse(dt.Rows[i]["Beginn"]?.ToString(), out DateTime startDate))
+                        html += $"<td>{startDate.ToShortDateString()}</td>";
                     else
                         html += $"<td>&nbsp;</td>";
 
@@ -459,6 +478,7 @@ namespace MelBox2Dienst
                         html += "<td>&nbsp;</td>";
 
                     html += $"<td>{dt.Rows[i]["KW"]}</td>";
+
 
                     //Tage
                     html += GuardTableDayCol(dt.Rows[i]["Mo"]);
@@ -484,20 +504,25 @@ namespace MelBox2Dienst
             
         }
 
+
         private static string GuardTableDayCol(object dayValue)
         {
-            if(!DateTime.TryParse(dayValue?.ToString().TrimEnd('x'), out DateTime h))
-            {
+            if (!DateTime.TryParse(dayValue?.ToString().Substring(0, 10), out DateTime h))            
                 return $"<td>???</td>";
-            }
+           
+            string colorClass;
+            if (dayValue?.ToString().Length > 10 && ushort.TryParse(dayValue?.ToString().Substring(10), out ushort guardCount) && guardCount > 1)
+                colorClass = "bg-success"; // mehrere Zuordnungen an einem Tag (z.B. Übergabe Bereitschaft)
+            else
+                colorClass = "bg-info"; // Zuordnung zu einem Empfänger vorhanden
 
             bool weekend = h.DayOfWeek == DayOfWeek.Sunday || h.DayOfWeek == DayOfWeek.Saturday;
             bool holyday = HttpHelper.IsHolyday(h);
-            bool isAssigned = dayValue.ToString().EndsWith("x");
+            bool isAssigned = dayValue.ToString().Length > 10;
 
             StringBuilder sb = new StringBuilder();
-            sb.Append($"<td class='{(holyday ? "bg-danger" : (weekend ? "bg-secondary" : string.Empty))}'>"); //
-            sb.Append($"<span class='badge rounded-pill {(isAssigned ? "bg-info" : string.Empty)}'>{h.Day:00}.</span>");
+            sb.Append($"<td class='{(holyday ? "bg-danger" : (weekend ? "bg-secondary" : string.Empty))}'>");
+            sb.Append($"<span class='badge rounded-pill {(isAssigned ? colorClass : string.Empty)}'>{h.Day:00}.</span>");
             sb.Append("</td>");
 
             return sb.ToString();
@@ -507,9 +532,10 @@ namespace MelBox2Dienst
         {
             if (dt == null || dt.Rows.Count == 0) return "<span class='badge bg-danger'>Bereitschafseinteilung unbekannt</span>";
 
-            _ = uint.TryParse(dt.Rows[0]["Id"].ToString(), out uint guardId);
-            _ = DateTime.TryParse(dt.Rows[0]["Beginn"].ToString(), out DateTime start);
-            _ = DateTime.TryParse(dt.Rows[0]["Ende"].ToString(), out DateTime end);
+            _ = uint.TryParse(dt.Rows[0]["Id"]?.ToString(), out uint guardId);
+            _ = uint.TryParse(dt.Rows[0]["ServiceId"]?.ToString(), out uint serviceId);
+            _ = DateTime.TryParse(dt.Rows[0]["Beginn"]?.ToString(), out DateTime start);
+            _ = DateTime.TryParse(dt.Rows[0]["Ende"]?.ToString(), out DateTime end);
             start = start.ToLocalTime();
             end = end.ToLocalTime();
 
@@ -529,25 +555,11 @@ namespace MelBox2Dienst
                    $"<div class='text-muted'>Stand {dt.Rows[0]["Stand"]}</div>" +
                    $" <input type='hidden' name='Id' value='{guardId}'>" +
                     " <div class='input-group mb-3'>" +
-                    "  <span class='input-group-text'>Name</span>" +
-                   $"  <input class='form-control' list='serviceNames' name='Name' id='ServiceName' placeholder='Anzeigename des Kollegen' value='{dt.Rows[0]["Name"]}' onchange='findId(this.value)' required>\r\n" +
-                   $"  <input class='form-control bg-warning' name='ServiceId' id='ServiceId' value='{dt.Rows[0]["ServiceId"]}'>\r\n" +
-                     "<datalist id='serviceNames'>" +
-                        ServiceNameListOptions() +
-                     "</datalist>" +
-                    //TODO: automatische Ergänzung Service-Id mit javascript?
-                   
-                     "<script>\r\n" +
-                        "function findId(val) {\r\n" +
-                        "  var x = document.getElementById('serviceNames');\r\n" +
-                        "  var i;\r\n" +
-                        "  for (i = 0; i < x.options.length; i++) {\r\n" +
-                        "    if (x.options[i].value == val) {\r\n" +
-                        "      document.getElementById('ServiceId').value = x.options[i].id;\r\n" +
-                        "      break;\r\n"+
-                        "    }\r\n"+
-                        "  }\r\n"+
-                        "}\r\n" +
+                    "  <span class='input-group-text'>Name</span>" +            
+                   $"  <select class='form-select'  name='ServiceId' id='ServiceId' placeholder='Anzeigename des Kollegen' value='{serviceId}' required>\r\n" +
+                        ServiceNameListOptions(serviceId) +
+                    "  </select>" +                
+                    "<script>\r\n" +
                         "function mint(id, val){\r\n" +
                         " document.getElementById(id).min = val;\r\n" +
                         "}\r\n" +
@@ -575,7 +587,7 @@ namespace MelBox2Dienst
             return form;
         }
 
-        public static string GuardFormNew(DateTime start, uint serviceId, string serviceName)
+        public static string GuardFormNew(DateTime start, uint serviceId)
         {
             #region Uhrzeiten vorauswählen
             start = start.Date; // 0 Uhr
@@ -596,23 +608,19 @@ namespace MelBox2Dienst
 
             DateTime end = start.AddDays(7).Date.AddHours(7);
 
-            #endregion
+#if DEBUG
+            Console.WriteLine($"Neue Bereitschaft von {start} bis {end}.");
+#endif
+#endregion
 
             string form =
                     "<h4>Bereitschaft einteilen</h4>" +
                     "<form action='/guard/create' method='post'>\r\n" +
                     " <div class='input-group mb-3'>" +
                     "  <span class='input-group-text'>Name</span>" +
-                   $"  <input class='form-control' list='serviceNames' name='Name' id='ServiceName' placeholder='Anzeigename des Kollegen' value='{serviceName}' onchange='u(this.options)' required>\r\n" +
-                   $"  <input class='form-control bg-warning' name='ServiceId' id='ServiceId' value='{serviceId}'>\r\n" +
-                        "<datalist id='serviceNames'>" +
-                        ServiceNameListOptions() +
-                        "</datalist>" +
-                        "<script>\r\n" +
-                        "function u(){" +
-                        "}" +
-                        "</script>\r\n" +
-                    //TODO: automatische Ergänzung Service-Id?
+                   $"  <select class='form-select'  name='ServiceId' id='ServiceId' placeholder='Anzeigename des Kollegen' value='{serviceId}' required>\r\n" +
+                        ServiceNameListOptions(serviceId) +
+                    "  </select>" +            
                     "</div>\r\n" +
                     " <div class='input-group mb-3'>" +
                     "  <span class='input-group-text'>von</span>" +
@@ -637,14 +645,14 @@ namespace MelBox2Dienst
         /// Liste aller potentillen Empfänger
         /// </summary>
         /// <returns></returns>
-        private static string ServiceNameListOptions()
+        private static string ServiceNameListOptions(uint serviceId)
         {
             Dictionary<uint, string> names = Sql.ServiceNames();
 
             StringBuilder sbNames = new StringBuilder();
 
             foreach (var name in names)            
-                sbNames.AppendLine($"<option id='{name.Key}' value='{name.Value}'>");
+                sbNames.AppendLine($"<option value='{name.Key}' {(serviceId == name.Key ? "selected" : "")}>{name.Value}</option>");
             
             return sbNames.ToString();
         }

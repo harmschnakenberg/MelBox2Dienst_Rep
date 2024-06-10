@@ -138,8 +138,10 @@ namespace MelBox2Dienst
                 { "@Id", form["Id"] }
             };
 
+            // Keine Empfänger löschen, wenn sie noch in einer kommenden Bereitschaft eingeteilt sind.
             _ = Sql.NonQuery(
-                @"DELETE FROM Service WHERE Id = @Id;", args);
+                @"DELETE FROM Service WHERE Id = @Id AND @Id NOT IN (SELECT ToId FROM Shift WHERE END > DATE('now') );", args);
+
         }
 
     }

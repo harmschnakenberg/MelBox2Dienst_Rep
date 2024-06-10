@@ -161,11 +161,15 @@ namespace MelBox2Dienst
             }
             else if (context.Request.QueryString.Get("datum").Length > 0 && DateTime.TryParse(context.Request.QueryString.Get("datum"), out date))
             {
-                if (date.CompareTo(DateTime.Now.AddYears(-10)) < 0) date = DateTime.Now.Date; //Älter als 10 Jahre = ungültig
-                if (date.CompareTo(DateTime.Now) > 0) date = DateTime.Now.Date; //Die Zukunft ist noch nicht bestimmt
+                Console.WriteLine("Neue Bereitchaft erstellen ab " + date);
 
-                html += Html.GuardFormNew(date, 0, "TEST"); //Übergabe der Service-Person
+                if (date.CompareTo(DateTime.Now.AddYears(-10)) < 0) date = DateTime.Now.Date; //Älter als 10 Jahre = ungültig
+                if (date.CompareTo(DateTime.Now) < 0) date = DateTime.Now.Date; //Die Vergangenheit kann nicht geändert werden
+
+                Console.WriteLine("Rufe auf: GuardFormNew()");
+                html += Html.GuardFormNew(date, 1); //TODO: Übergabe der Id der Service-Person
             }
+
             #endregion
 #if DEBUG
             Console.WriteLine(date);
@@ -197,6 +201,17 @@ namespace MelBox2Dienst
 
             await GuradOverview(context);
         }
+
+
+        [RestRoute("Post", "/guard/delete")]
+        public async Task DeleteGuard(IHttpContext context)
+        {
+            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
+            Sql.DeleteGuard(formContent);
+
+            await GuradOverview(context);
+        }
+
 
 
         [RestRoute]

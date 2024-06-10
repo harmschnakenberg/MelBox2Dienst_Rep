@@ -15,12 +15,12 @@ namespace MelBox2Dienst
         {
             return Sql.SelectDataTable(
                 @"SELECT 
-                Id||'' AS Id,
-                ServiceId||'' AS ServiceId,
+                Id ||'' AS Id,
+                ServiceId ||'' AS ServiceId,
                 Name,
-                Start||'' AS Beginn,
-                End||'' AS Ende,
-                KW||'' AS KW,
+                Start AS Beginn,
+                End AS Ende,
+                KW ||'' AS KW,
                 Mo,Di,Mi,Do,Fr,Sa,So
                 FROM View_Calendar_Full;", null);
         }
@@ -86,6 +86,7 @@ namespace MelBox2Dienst
                 Dictionary<string, object> args = new Dictionary<string, object>
                 {
                     { "@Id", form["Id"] },
+                   // { "@Name", WebUtility.UrlDecode(form["Name"]) },
                     { "@ToId", form["ServiceId"] },
                     { "@Start", startDate.Add(startTime).ToUniversalTime()  },
                     { "@End", endDate.Add(endTime).ToUniversalTime()  }
@@ -180,5 +181,35 @@ namespace MelBox2Dienst
 
 
         }
+
+
+        internal static void DeleteGuard(Dictionary<string, string> form)
+        {
+#if DEBUG
+            foreach (var key in form.Keys)
+            {
+                Console.WriteLine(key + "=" + form[key]);
+            }
+#endif
+                #region Bereitschaft löschen
+                Dictionary<string, object> args = new Dictionary<string, object>
+                {
+                    { "@Id", form["Id"] }
+                };
+
+            Sql.NonQuery(
+                @"DELETE FROM Shift  
+                WHERE Id = @Id;", args);
+                  
+                #endregion
+
+            }
+
+         
+
+
+        
+
+
     }
 }
