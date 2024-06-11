@@ -105,6 +105,9 @@ namespace MelBox2Dienst
                         //Wenn Schema aus DB nicht eingehalten wird (z.B. UNIQUE Constrain in SELECT Abfragen); dann neue DataTable, alle Spalten <string>
                         using (var reader = command.ExecuteReader())
                         {
+                            //if (reader.FieldCount == 0)
+                            //    return myTable;
+
                             //zu Fuß einlesen
                             for (int i = 0; i < reader.FieldCount; i++)
                             {

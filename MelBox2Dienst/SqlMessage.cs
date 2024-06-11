@@ -69,7 +69,7 @@ namespace MelBox2Dienst
         /// <returns></returns>
         internal static DataTable SelectAllBlockedMessages()
         {
-            const string query1 = "SELECT Id, Content AS Inhalt, BlockPolicyId AS Sperregel FROM Message Where BlockPolicyId <> 0;"; //Alle Nachrichten, die eine Sperregel haben
+            const string query1 = "SELECT Id AS Nr, Content AS Inhalt, BlockPolicyId AS Sperregel FROM Message Where BlockPolicyId <> 0;"; //Alle Nachrichten, die eine Sperregel haben
             return Sql.SelectDataTable(query1, null);
         }
 
@@ -269,6 +269,19 @@ namespace MelBox2Dienst
                 @"SELECT Id, Content AS Inhalt, BlockPolicyId AS Sperregel 
                 FROM Message WHERE Id = (SELECT ContentId FROM Recieved WHERE Id = @RecId);", args); 
         }
+
+        internal static DataTable SelectMessageByMessagedId(uint messageId)
+        {
+            Dictionary<string, object> args = new Dictionary<string, object>
+            {
+                { "@Id", messageId }
+            };
+
+            return Sql.SelectDataTable(
+                @"SELECT Id, Content AS Inhalt, BlockPolicyId AS Sperregel 
+                FROM Message WHERE Id = @Id;", args);
+        }
+
 
         /// <summary>
         /// Finde die Sperregel zu einer empfangenen Nachricht

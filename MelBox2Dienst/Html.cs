@@ -512,16 +512,26 @@ namespace MelBox2Dienst
            
             string colorClass;
             if (dayValue?.ToString().Length > 10 && ushort.TryParse(dayValue?.ToString().Substring(10), out ushort guardCount) && guardCount > 1)
-                colorClass = "bg-success"; // mehrere Zuordnungen an einem Tag (z.B. Übergabe Bereitschaft)
+                colorClass = "bg-primary"; // mehrere Zuordnungen an einem Tag (z.B. Übergabe Bereitschaft)
             else
                 colorClass = "bg-info"; // Zuordnung zu einem Empfänger vorhanden
 
             bool weekend = h.DayOfWeek == DayOfWeek.Sunday || h.DayOfWeek == DayOfWeek.Saturday;
+            bool today = h.Date == DateTime.Now.Date;
             bool holyday = HttpHelper.IsHolyday(h);
             bool isAssigned = dayValue.ToString().Length > 10;
 
             StringBuilder sb = new StringBuilder();
-            sb.Append($"<td class='{(holyday ? "bg-danger" : (weekend ? "bg-secondary" : string.Empty))}'>");
+
+            if (holyday)
+                sb.Append("<td class='bg-danger'>");
+            else if (today)
+                sb.Append("<td class='bg-success'>");
+            else if (weekend) 
+                sb.Append($"<td class='bg-secondary'>");
+            else
+                sb.Append($"<td>");
+
             sb.Append($"<span class='badge rounded-pill {(isAssigned ? colorClass : string.Empty)}'>{h.Day:00}.</span>");
             sb.Append("</td>");
 

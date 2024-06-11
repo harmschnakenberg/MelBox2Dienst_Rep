@@ -34,8 +34,8 @@ namespace MelBox2Dienst
                         Html.ConvertDataTable(
                         dataTable,
                         new Dictionary<string, string>() {
-                            { "Sperregel", "blocked" },
-                            { "Nr", "in" }
+                          // { "Sperregel", "blocked" },
+                           { "Nr", "in" }
                         }
                         );
             }
@@ -55,7 +55,7 @@ namespace MelBox2Dienst
                         Html.ConvertDataTable(
                         dataTable,
                         new Dictionary<string, string>() {
-                            { "Sperregel", "blocked" },
+                          //  { "Sperregel", "blocked" },
                             { "Nr", "in" }
                         }
                         );

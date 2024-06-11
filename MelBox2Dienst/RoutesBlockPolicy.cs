@@ -1,5 +1,6 @@
 ﻿using Grapevine;
 using System.Collections.Generic;
+using System.Data;
 using System.Threading.Tasks;
 
 namespace MelBox2Dienst
@@ -25,11 +26,12 @@ namespace MelBox2Dienst
                     "<h4>Gesperrte Nachrichten</h4>" +
                     Html.ConvertDataTable(
                     Sql.SelectAllBlockedMessages(),
-                    new Dictionary<string, string>() { { "Sperregel", "blocked" } }
+                    new Dictionary<string, string>() { { "Nr", "blocked" } }
 
                 ) + "<hr><h4>Sperregeln</h4>" +
                 Html.ConvertDataTable(
-                    Sql.SelectAllBlockPolicies()
+                    Sql.SelectAllBlockPolicies(),
+                    new Dictionary<string, string>() { { "Sperregel", "blocked" } }
                 );
             }
             #endregion
@@ -45,11 +47,24 @@ namespace MelBox2Dienst
                     "</div>";
             }
             #endregion
+            #region Suche nach Nachricht-Id
+            else if (uint.TryParse(context.Request.QueryString.Get("Nr"), out uint messageId))
+            {
+                DataTable dt = Sql.SelectMessageByMessagedId(messageId);
+                _= uint.TryParse(dt.Rows[0]["Sperregel"]?.ToString(), out uint messageBlockPolicyId);
 
+                html +=
+                       Html.ConvertDataTable(dt) +
+                       Html.BlockPolicySelection(
+                           Sql.SelectAllBlockPolicies(), 
+                           messageBlockPolicyId, 
+                           messageId
+                           );
+            }
+            #endregion
 
             await context.Response.SendResponseAsync(Html.Sceleton(html));
         }
-
 
         /// <summary>
         /// Ändert eine Sperregel in der Datenbank von eienm Formular

@@ -94,6 +94,7 @@ namespace MelBox2Dienst
 
                 if (!Sql.NonQuery(
                     @"Update Shift SET 
+                    Time = DATETIME('now'),
                     ToId = @ToId,
                     Start = @Start,
                     End = @End 

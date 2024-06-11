@@ -94,8 +94,7 @@ namespace MelBox2Dienst
                         Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
                         Name TEXT NOT NULL UNIQUE, 
                         Phone TEXT, 
-                        Email TEXT,
-                        Color TEXT DEFAULT '#54B4D3'
+                        Email TEXT
                         ); ";
                 NonQuery(query, null);
 
@@ -135,8 +134,8 @@ namespace MelBox2Dienst
                        SenderId INTEGER, 
                        ContentId INTEGER, 
 
-                       CONSTRAINT fk_SenderId FOREIGN KEY (SenderId) REFERENCES Customer (Id) ON DELETE NO ACTION, 
-                       CONSTRAINT fk_ContentId FOREIGN KEY (ContentId) REFERENCES Message (Id) ON DELETE NO ACTION 
+                       CONSTRAINT fk_SenderId FOREIGN KEY (SenderId) REFERENCES Customer (Id) ON DELETE RESTRICT, 
+                       CONSTRAINT fk_ContentId FOREIGN KEY (ContentId) REFERENCES Message (Id) ON DELETE RESTRICT 
                        ); ";
                 NonQuery(query, null);
 
@@ -148,8 +147,8 @@ namespace MelBox2Dienst
                         Reference INTEGER, 
                         DeliveryCode INTEGER, 
 
-                        CONSTRAINT fk_ToId FOREIGN KEY (ToId) REFERENCES Service (Id) ON DELETE NO ACTION , 
-                        CONSTRAINT fk_ContentId FOREIGN KEY (ContentId) REFERENCES Message (Id) ON DELETE NO ACTION  
+                        CONSTRAINT fk_ToId FOREIGN KEY (ToId) REFERENCES Service (Id) ON DELETE RESTRICT , 
+                        CONSTRAINT fk_ContentId FOREIGN KEY (ContentId) REFERENCES Message (Id) ON DELETE RESTRICT 
                         ); ";
                 NonQuery(query, null);
 
@@ -161,7 +160,7 @@ namespace MelBox2Dienst
                         Start TEXT NOT NULL, 
                         End TEXT NOT NULL, 
 
-                        CONSTRAINT fk_ToId FOREIGN KEY (ToId) REFERENCES Service (Id) ON DELETE NO ACTION 
+                        CONSTRAINT fk_ToId FOREIGN KEY (ToId) REFERENCES Service (Id) ON DELETE RESTRICT
                         ); ";
                 NonQuery(query, null);
 
@@ -261,7 +260,7 @@ namespace MelBox2Dienst
                             , Sa || CASE WHEN Sa IN (SELECT Tag FROM View_AllShiftDays) THEN (SELECT Belegung FROM View_AllShiftDays WHERE Tag = Sa) ELSE '' END AS Sa
                             , So || CASE WHEN So IN (SELECT Tag FROM View_AllShiftDays) THEN (SELECT Belegung FROM View_AllShiftDays WHERE Tag = So) ELSE '' END AS So
                             FROM View_Calendar
-                            LEFT JOIN Shift AS s ON strftime('%W%Y', s.Start) = strftime('%W%Y', Mo)
+                            LEFT JOIN Shift AS s ON (strftime('%W%Y', Mo) BETWEEN strftime('%W%Y', s.Start) AND strftime('%W%Y', s.End, '-1 day'))
                             LEFT JOIN Service p ON s.ToId = p.Id
                             ORDER BY Mo; ";
                 NonQuery(query, null);
