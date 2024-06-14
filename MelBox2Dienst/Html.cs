@@ -375,15 +375,29 @@ namespace MelBox2Dienst
         {
             string idColName = "Sperregel"; //Name der Spalte, die eine Sperregel eindeutig bezeichnet.
 
-            string form = "<span class='badge bg-danger'>Muss noch graphisch aufbereitet werden!</span>" +
+            string form =
                 "<form action='/message/update' method='post'>\r\n" +
                 $"<input type='hidden' name='MessageId' value ='{messageId}'>" +
                 "<table class='table table-striped'>";
 
             //add header row
             form += "<tr>";
-            for (int i = 0; i < dt.Columns.Count; i++)
-                form += "<th>" + dt.Columns[i].ColumnName + "</th>";
+            //for (int i = 0; i < dt.Columns.Count; i++)
+            //    form += "<th>" + dt.Columns[i].ColumnName + "</th>";
+            form += "<th>Sperregel</th>" +
+                "<th><div class='row' style='width:48vw;'>" +
+
+                " <div class='col'>Mo</div>" +
+                " <div class='col'>Di</div>" +
+                " <div class='col'>Mi</div>" +
+                " <div class='col'>Do</div>" +
+                " <div class='col'>Fr</div>" +
+                " <div class='col'>Sa</div>" +
+                " <div class='col'>So</div>" +
+
+                "</div></th>" +
+
+                "<th>Kommentar</th>";
             form += "</tr>";
 
             for (int i = 0; i < dt.Rows.Count; i++)
@@ -391,20 +405,101 @@ namespace MelBox2Dienst
                 form += "<tr>";
                 var currentPolicyId = dt.Rows[i][idColName];
 
-                for (int j = 0; j < dt.Columns.Count; j++)
-                {
-                    form += "<td>";
-                    if (dt.Columns[j].ColumnName == idColName)
-                        form += "<div class='form-check'>\r\n" +
+                form += "<td>";
+
+                form += "<div class='form-check'>\r\n" +
                                 $"  <input type='radio' class='form-check-input' id='policy{currentPolicyId}' name='PolicyId' value='{currentPolicyId}' {(selectedPolicy == uint.Parse(currentPolicyId.ToString()) ? "checked" : "")}>\r\n" +
                                 $"  <label class='form-check-label' for='policy{currentPolicyId}'>{currentPolicyId}</label></div>\r\n";
-                    else if (uint.TryParse(dt.Rows[i][j].ToString(), out uint h) && h > 24)
-                        form += string.Empty;
-                    else
-                        form += dt.Rows[i][j];
 
-                    form += "</td>";
-                }
+                form += "</td>\r\n<td>";
+
+                _ = uint.TryParse(dt.Rows[i]["MonStart"].ToString(), out uint monStart);
+                _ = uint.TryParse(dt.Rows[i]["MonEnd"].ToString(), out uint monEnd);
+                _ = uint.TryParse(dt.Rows[i]["TueStart"].ToString(), out uint tueStart);
+                _ = uint.TryParse(dt.Rows[i]["TueEnd"].ToString(), out uint tueEnd);
+                _ = uint.TryParse(dt.Rows[i]["WenStart"].ToString(), out uint wenStart);
+                _ = uint.TryParse(dt.Rows[i]["WenEnd"].ToString(), out uint wenEnd);
+                _ = uint.TryParse(dt.Rows[i]["ThuStart"].ToString(), out uint thuStart);
+                _ = uint.TryParse(dt.Rows[i]["ThuEnd"].ToString(), out uint thuEnd);
+                _ = uint.TryParse(dt.Rows[i]["FriStart"].ToString(), out uint friStart);
+                _ = uint.TryParse(dt.Rows[i]["FriEnd"].ToString(), out uint friEnd);
+                _ = uint.TryParse(dt.Rows[i]["SatStart"].ToString(), out uint satStart);
+                _ = uint.TryParse(dt.Rows[i]["SatEnd"].ToString(), out uint satEnd);
+                _ = uint.TryParse(dt.Rows[i]["SunStart"].ToString(), out uint sunStart);
+                _ = uint.TryParse(dt.Rows[i]["SunEnd"].ToString(), out uint sunEnd);
+
+                form += "<div class='progress'  style='height:2em; width:48vw;'>" +
+
+                      $" <div class='progress-bar bg-secondary' style='width:{monStart}vw'></div>" +
+                      $" <div class='progress-bar bg-danger' style='width:{monEnd - monStart}vw'>{monStart}-{monEnd} Uhr</div>" +
+                      $" <div class='progress-bar bg-secondary' style='width:{24 - monEnd}vw'></div>" +
+                      $" <div class='progress-bar bg-light' style='width:4px'></div>" +
+
+                      $" <div class='progress-bar bg-secondary' style='width:{tueStart}vw'></div>" +
+                      $" <div class='progress-bar bg-danger' style='width:{tueEnd - tueStart}vw'>{tueStart}-{tueEnd} Uhr</div>" +
+                      $" <div class='progress-bar bg-secondary' style='width:{24 - tueEnd}vw'></div>" +
+                      $" <div class='progress-bar bg-light' style='width:4px;'></div>" +
+
+                      $" <div class='progress-bar bg-secondary' style='width:{wenStart}vw'></div>" +
+                      $" <div class='progress-bar bg-danger' style='width:{wenEnd - wenStart}vw'>{wenStart}-{wenEnd} Uhr</div>" +
+                      $" <div class='progress-bar bg-secondary' style='width:{24 - wenEnd}vw'></div>" +
+                      $" <div class='progress-bar bg-light' style='width:4px;'></div>" +
+
+                      $" <div class='progress-bar bg-secondary' style='width:{thuStart}vw'></div>" +
+                      $" <div class='progress-bar bg-danger' style='width:{thuEnd - thuStart}vw'>{thuStart}-{thuEnd} Uhr</div>" +
+                      $" <div class='progress-bar bg-secondary' style='width:{24 - thuEnd}vw'></div>" +
+                      $" <div class='progress-bar bg-light' style='width:4px;'></div>" +
+
+                      $" <div class='progress-bar bg-secondary' style='width:{friStart}vw'></div>" +
+                      $" <div class='progress-bar bg-danger' style='width:{friEnd - friStart}vw'>{friStart}-{friEnd} Uhr</div>" +
+                      $" <div class='progress-bar bg-secondary' style='width:{24 - friEnd}vw'></div>" +
+                      $" <div class='progress-bar bg-light' style='width:4px;'></div>" +
+
+                      $" <div class='progress-bar bg-secondary' style='width:{satStart}vw'></div>" +
+                      $" <div class='progress-bar bg-danger' style='width:{satEnd - satStart}vw'> {satStart}-{satEnd} Uhr</div>" +
+                      $" <div class='progress-bar bg-secondary' style='width:{24 - satEnd}vw'></div>" +
+                      $" <div class='progress-bar bg-light' style='width:4px;'></div>" +
+
+                      $" <div class='progress-bar bg-secondary' style='width:{sunStart}vw'></div>" +
+                      $" <div class='progress-bar bg-danger' style='width:{sunEnd - sunStart}vw'> {sunStart}-{sunEnd} Uhr</div>" +
+                      $" <div class='progress-bar bg-secondary' style='width:{24 - sunEnd}vw'></div>" +
+            
+                "</div>";
+
+
+
+                form += "</td>\r\n";
+                form += $"<td>{dt.Rows[i]["Kommentar"]}</td>";
+
+                //for (int j = 0; j < dt.Columns.Count; j++)
+                //{
+                //    form += "<td>";
+                //    if (dt.Columns[j].ColumnName == idColName)
+                //        form += "<div class='form-check'>\r\n" +
+                //                $"  <input type='radio' class='form-check-input' id='policy{currentPolicyId}' name='PolicyId' value='{currentPolicyId}' {(selectedPolicy == uint.Parse(currentPolicyId.ToString()) ? "checked" : "")}>\r\n" +
+                //                $"  <label class='form-check-label' for='policy{currentPolicyId}'>{currentPolicyId}</label></div>\r\n";
+                //    else if (uint.TryParse(dt.Rows[i][j].ToString(), out uint h))
+                //        if (h > 24)
+                //            form += string.Empty;
+                //        else
+                //        {
+                //            if(dt.Columns[j].ColumnName.EndsWith("Start"))
+                //            form += "<div class='progress'>" +
+                //                   $" <div class='progress-bar bg-secondary' style='width:{h*100/24}%'>{h}</div>" +
+                //                   $" <div class='progress-bar bg-primary' style='width:{(24-h) * 100 / 24}%'></div>" +
+                //                    "</div>";
+
+                //            if (dt.Columns[j].ColumnName.EndsWith("End"))
+                //                form += "<div class='progress'>" +
+                //                       $" <div class='progress-bar bg-primary' style='width:{h * 100 / 24}%'></div>" +
+                //                       $" <div class='progress-bar bg-secondary' style='width:{(24 - h) * 100 / 24}%'>{h}</div>" +
+                //                        "</div>";
+                //        }
+                //    else
+                //        form += dt.Rows[i][j];
+
+                //    form += "</td>";
+                //}
 
                 form += "</tr>\r\n";
             }
