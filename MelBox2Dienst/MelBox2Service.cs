@@ -27,6 +27,9 @@ namespace MelBox2Dienst
 
         protected override void OnStart(string[] args)
         {
+           
+           // Pipes.StartPipeServer("myPipe");
+            Pipes.StartPipeServer2(Pipes.Name.Sms);
             Server.Start();
             Sql.CheckDbFile();
 

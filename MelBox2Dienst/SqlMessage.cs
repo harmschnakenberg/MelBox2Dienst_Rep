@@ -377,5 +377,31 @@ namespace MelBox2Dienst
         }
 
         #endregion
+   
+    
+    
     }
+
+    /// <summary>
+    /// SMS
+    /// </summary>
+    public class Sms
+    {
+        public Sms(int index, DateTimeOffset time, string phone, string content)
+        {
+            Index = index;
+            Time = time;
+            Phone = phone;
+            Content = content;
+        }
+
+        public int Index { get; set; }
+
+        public DateTimeOffset Time { get; set; }
+
+        public string Phone { get; set; }
+
+        public string Content { get; set; }
+    }
+
 }
