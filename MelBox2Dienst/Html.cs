@@ -3,6 +3,7 @@ using System.CodeDom;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Reflection.Emit;
 using System.Text;
@@ -226,6 +227,8 @@ namespace MelBox2Dienst
                 {
                     if (links.ContainsKey(dt.Columns[j].ColumnName))
                         html += $"<td><a class='btn btn-primary' href='/{links[dt.Columns[j].ColumnName]}?{dt.Columns[j].ColumnName}={dt.Rows[i][j]}'>{dt.Rows[i][j]}</a></td>";
+                    else if (dt.Rows[i][j].ToString().StartsWith("#") && dt.Rows[i][j].ToString().Length == 7)
+                        html += $"<td style='background-color:{dt.Rows[i][j]};'></td>";
                     else
                         html += "<td>" + dt.Rows[i][j].ToString() + "</td>";
                 }
@@ -353,6 +356,7 @@ namespace MelBox2Dienst
                 "  <span class='input-group-text'>Kontakt</span>" +
                $"  <input type='text' name='Phone' class='form-control' placeholder='Mobilnummer (SMS)' value='{dt.Rows[0]["Mobil"]}'>\r\n" +
                $"  <input type='text' name='Email' class='form-control' placeholder='E-Mail-Adresse' value='{dt.Rows[0]["Email"]}'>\r\n" +
+               $"  <input type='color' name='Color' class='form-control form-control-color' value='{dt.Rows[0]["Farbe"]}' title='Wähle eine Anzeigefarbe'>" +
                 " </div>\r\n" +
 
                 "<div class='btn-group'>\r\n" +
@@ -466,69 +470,36 @@ namespace MelBox2Dienst
             
                 "</div>";
 
-
-
-                form += "</td>\r\n";
-                form += $"<td>{dt.Rows[i]["Kommentar"]}</td>";
-
-                //for (int j = 0; j < dt.Columns.Count; j++)
-                //{
-                //    form += "<td>";
-                //    if (dt.Columns[j].ColumnName == idColName)
-                //        form += "<div class='form-check'>\r\n" +
-                //                $"  <input type='radio' class='form-check-input' id='policy{currentPolicyId}' name='PolicyId' value='{currentPolicyId}' {(selectedPolicy == uint.Parse(currentPolicyId.ToString()) ? "checked" : "")}>\r\n" +
-                //                $"  <label class='form-check-label' for='policy{currentPolicyId}'>{currentPolicyId}</label></div>\r\n";
-                //    else if (uint.TryParse(dt.Rows[i][j].ToString(), out uint h))
-                //        if (h > 24)
-                //            form += string.Empty;
-                //        else
-                //        {
-                //            if(dt.Columns[j].ColumnName.EndsWith("Start"))
-                //            form += "<div class='progress'>" +
-                //                   $" <div class='progress-bar bg-secondary' style='width:{h*100/24}%'>{h}</div>" +
-                //                   $" <div class='progress-bar bg-primary' style='width:{(24-h) * 100 / 24}%'></div>" +
-                //                    "</div>";
-
-                //            if (dt.Columns[j].ColumnName.EndsWith("End"))
-                //                form += "<div class='progress'>" +
-                //                       $" <div class='progress-bar bg-primary' style='width:{h * 100 / 24}%'></div>" +
-                //                       $" <div class='progress-bar bg-secondary' style='width:{(24 - h) * 100 / 24}%'>{h}</div>" +
-                //                        "</div>";
-                //        }
-                //    else
-                //        form += dt.Rows[i][j];
-
-                //    form += "</td>";
-                //}
-
-                form += "</tr>\r\n";
+                form += "</td>\r\n" +
+                       $"<td>{dt.Rows[i]["Kommentar"]}</td>" +
+                        "</tr>\r\n";
             }
             form += "</table>" +
             "<button type='submit' class='btn btn-primary mt-3'>Sperregel ändern</button>\r\n" +
             "</form>";
 
-
-            // Style Skala + Balkendarstellung
-            //"<style>\r\n.g {\r\nheight: 5px;\r\nbackground: repeating-linear-gradient(\r\n90deg,\r\nblue,\r\nblue 2px,\r\nblack 2px,\r\nblack 4.17%\r\n);\r\n}\r\n        \r\n#Mo {\r\n  height: 20px;\r\n  background-image: linear-gradient(to right, black 0%, black 95.91% , orange 95.91%, orange 100%, black 100%, black 100% );\r\n}\r\n</style>"
-            //"<div id=\"Mo\"></div>\r\n<div class=\"g\"></div>"
             return form;
         }
 
 
         public static string GuardCalender(DataTable dt)
         {
+            //Zugewiesene Farbe für Empfänger ermitteln, um Kalender entsprechen einzufärben
+            Dictionary<uint, string> colorDict = Sql.ServiceColors();
 
-            List<uint> ServiceIds = new List<uint>(dt.Rows.Count);
-            foreach (DataRow row in dt.Rows)
-                if (!row.IsNull("ServiceId") && uint.TryParse(row["ServiceId"].ToString(), out uint serviceId))
-                    ServiceIds.Add(serviceId);
+            string html =
 
-            //ToDo: Zugewiesene Farbe für Empfänger ermitteln und Kalender entsprechen einfärben
+            "<script>\r\n" + //Bootsstrap script für Tooltips
+            "var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle=\"tooltip\"]'))\r\n" +
+            "var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {\r\n" +
+            "  return new bootstrap.Tooltip(tooltipTriggerEl)\r\n" +
+            "})\r\n" +
+            "</script>\r\n" +
 
-            string html = "<table class='table table-striped text-center'>";
+            "<table class='table table-striped text-center'>";
+
             try
             {
-
                 //Kopfzeile
                 html += "<tr>";
                 for (int i = 0; i < dt.Columns.Count; i++)
@@ -541,19 +512,17 @@ namespace MelBox2Dienst
                 {
                     _ = uint.TryParse(dt.Rows[i]["Id"].ToString(), out uint guardId);
                     _ = uint.TryParse(dt.Rows[i]["ServiceId"].ToString(), out uint serviceId);
-                    _ = DateTime.TryParse(dt.Rows[i]["Mo"]?.ToString().Substring(0,10), out DateTime monday);
-
-                   // Console.WriteLine("Montag ist " + monday);
+                    _ = DateTime.TryParse(dt.Rows[i]["Mo"]?.ToString().Substring(0, 10), out DateTime monday);
 
                     html += "<tr>";
 
                     //Id
                     if (guardId != 0)
-                        html += $"<td><a class='btn btn-primary btn-sm' href='/guard?id={guardId}'><i class='fa fa-edit'></i></a></td>";                   
+                        html += $"<td><a class='btn btn-primary btn-sm' href='/guard?id={guardId}'><i class='fa fa-edit'></i></a></td>";
                     else
                         html += $"<td><a class='btn btn-primary btn-sm' href='/guard?datum={monday:yyyy-MM-dd}'><i class='fa fa-edit'></i></a></td>";
 
-                    //html += $"<td>{dt.Rows[i]["ServiceId"]}</td>";
+                    //  html += $"<td>{dt.Rows[i]["ServiceId"]}</td>";
 
                     //Name
                     if (dt.Rows[i]["Name"] == null)
@@ -574,15 +543,14 @@ namespace MelBox2Dienst
 
                     html += $"<td>{dt.Rows[i]["KW"]}</td>";
 
-
                     //Tage
-                    html += GuardTableDayCol(dt.Rows[i]["Mo"]);
-                    html += GuardTableDayCol(dt.Rows[i]["Di"]);
-                    html += GuardTableDayCol(dt.Rows[i]["Mi"]);
-                    html += GuardTableDayCol(dt.Rows[i]["Do"]);
-                    html += GuardTableDayCol(dt.Rows[i]["Fr"]);
-                    html += GuardTableDayCol(dt.Rows[i]["Sa"]);
-                    html += GuardTableDayCol(dt.Rows[i]["So"]);
+                    html += GuardTableDayCol(dt.Rows[i]["Mo"], colorDict);
+                    html += GuardTableDayCol(dt.Rows[i]["Di"], colorDict);
+                    html += GuardTableDayCol(dt.Rows[i]["Mi"], colorDict);
+                    html += GuardTableDayCol(dt.Rows[i]["Do"], colorDict);
+                    html += GuardTableDayCol(dt.Rows[i]["Fr"], colorDict);
+                    html += GuardTableDayCol(dt.Rows[i]["Sa"], colorDict);
+                    html += GuardTableDayCol(dt.Rows[i]["So"], colorDict);
 
                     html += "</tr>";
                 }
@@ -593,44 +561,97 @@ namespace MelBox2Dienst
             {
                 throw ex;
             }
-            
-            
-                return html;
-            
+
+            return html;
         }
 
 
-        private static string GuardTableDayCol(object dayValue)
+        private static string GuardTableDayCol(object dayValue, Dictionary<uint, string> colorDict)
         {
-            if (!DateTime.TryParse(dayValue?.ToString().Substring(0, 10), out DateTime h))            
+            //Format yyyy-MM-ddBId mit B = gleichzeitige Belegung, Id = Shift.Id
+
+            if (!DateTime.TryParse(dayValue?.ToString().Substring(0, 10), out DateTime h))
                 return $"<td>???</td>";
-           
-            string colorClass;
-            if (dayValue?.ToString().Length > 10 && ushort.TryParse(dayValue?.ToString().Substring(10), out ushort guardCount) && guardCount > 1)
-                colorClass = "bg-primary"; // mehrere Zuordnungen an einem Tag (z.B. Übergabe Bereitschaft)
-            else
-                colorClass = "bg-info"; // Zuordnung zu einem Empfänger vorhanden
+
+            string color = string.Empty;
+
+            if (dayValue.ToString().Length > 11)
+            {
+                ushort.TryParse(dayValue?.ToString().Substring(10, 1), out ushort guardCount);
+                uint.TryParse(dayValue?.ToString().Substring(11), out uint serviceId);
+                colorDict.TryGetValue(serviceId, out color);
+
+                if (color.Length == 0) // keine Farbe zugewiesen / auslesbar
+                    color = "#cccccc";
+
+                if (guardCount < 2) // Tag eindeutig einem Empfänger zugewiesen
+                    color = $"style='background-color:{color};color:{PicTextColorOnBgColor(color)};'";
+                else // mehrere Zuordnungen an einem Tag (z.B. Übergabe Bereitschaft)
+                {
+                    color = "style='background:" +
+                                    "repeating-linear-gradient(" +
+                                    "45deg," +
+                                    $"{color}," +
+                                    $"{color},5px," +
+                                    $"#ff8888 5px," +
+                                    $"#ff8888 10px" +
+                                    ");" +
+                                    $"color:{PicTextColorOnBgColor(color)};' " +
+                                    "data-bs-toggle='tooltip' title='&Uuml;bergabe'";
+                }
+            }
 
             bool weekend = h.DayOfWeek == DayOfWeek.Sunday || h.DayOfWeek == DayOfWeek.Saturday;
             bool today = h.Date == DateTime.Now.Date;
             bool holyday = HttpHelper.IsHolyday(h);
-            bool isAssigned = dayValue.ToString().Length > 10;
-
+            
             StringBuilder sb = new StringBuilder();
 
             if (holyday)
-                sb.Append("<td class='bg-danger'>");
+                sb.Append("<td class='bg-danger' data-bs-toggle='tooltip' title='Feiertag'>");
             else if (today)
-                sb.Append("<td class='bg-success'>");
+                sb.Append("<td class='bg-success' data-bs-toggle='tooltip' title='heute'>");
             else if (weekend) 
                 sb.Append($"<td class='bg-secondary'>");
             else
                 sb.Append($"<td>");
 
-            sb.Append($"<span class='badge rounded-pill {(isAssigned ? colorClass : string.Empty)}'>{h.Day:00}.</span>");
+            //sb.Append($"<span class='badge rounded-pill {(isAssigned ? colorClass : string.Empty)}' {(colorString)}>{h.Day:00}.</span>");
+            sb.Append($"<span class='badge rounded-pill' {color}>{h.Day:00}.</span>");
             sb.Append("</td>");
 
             return sb.ToString();
+        }
+
+        private static string PicTextColorOnBgColor(string bgColor, string lightColor = "#ffffff", string darkColor= "#000000")
+        {
+            if (bgColor.Length < 7)
+                return lightColor;
+
+            //Quelle: https://stackoverflow.com/questions/98559/how-to-parse-hex-values-into-a-uint
+            var color = bgColor.Substring(1); //  (bgColor.StartsWith("#")) ? bgColor.Substring(1, 7) : bgColor;
+        
+            var r = Convert.ToUInt32(color.Substring(0, 2), 16); // hexToR
+            var g = Convert.ToUInt32(color.Substring(2, 2), 16); // hexToG
+            var b = Convert.ToUInt32(color.Substring(4, 2), 16); // hexToB   
+
+            return (((r * 0.299) + (g * 0.587) + (b * 0.114)) > 186) ?
+              darkColor : lightColor;
+        }
+
+        private static string ComplementColor(string origColor)
+        {
+            if (origColor.Length < 7)
+                return "#000000";
+
+            //Quelle: https://stackoverflow.com/questions/98559/how-to-parse-hex-values-into-a-uint
+            var color = origColor.Substring(1);
+
+            var r = Convert.ToUInt32(color.Substring(0, 2), 16); // hexToR
+            var g = Convert.ToUInt32(color.Substring(2, 2), 16); // hexToG
+            var b = Convert.ToUInt32(color.Substring(4, 2), 16); // hexToB   
+
+            return $"#{255-r:X2}{g:X2}{b:X2}";
         }
 
         public static string GuardFormUpdate(DataTable dt)

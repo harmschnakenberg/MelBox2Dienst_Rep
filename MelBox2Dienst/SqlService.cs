@@ -16,7 +16,8 @@ namespace MelBox2Dienst
                 @"SELECT Id, 
                 Name, 
                 Phone AS Mobil, 
-                Email
+                Email,
+                Color AS Farbe
                 FROM Service 
                 ORDER BY Name;", null);
         }
@@ -32,7 +33,8 @@ namespace MelBox2Dienst
                 @"SELECT Id, 
                 Name, 
                 Phone AS Mobil, 
-                Email
+                Email,
+                Color AS Farbe
                 FROM Service 
                 WHERE Id = @Id;", args);
         }
@@ -48,7 +50,8 @@ namespace MelBox2Dienst
                 @"SELECT Id, 
                 Name, 
                 Phone AS Mobil, 
-                Email                
+                Email,
+                Color AS Farbe
                 FROM Service                       
                 WHERE Name LIKE %@Name%;", args);
         }
@@ -73,6 +76,30 @@ namespace MelBox2Dienst
         }
 
         /// <summary>
+        /// Farbe je Empfänger
+        /// </summary>
+        /// <returns>ServiceId, Color</returns>
+        internal static Dictionary<uint, string> ServiceColors()
+        {
+            Dictionary<uint, string> dict = new Dictionary<uint, string>();
+
+            DataTable dt = Sql.SelectDataTable(
+                @"SELECT 
+                Id, 
+                Color                               
+                FROM Service;", null);
+
+            for (int x = 0; x < dt.Rows.Count; x++)
+            {
+                uint.TryParse(dt.Rows[x][0].ToString(), out uint id);
+
+                dict.Add(id, dt.Rows[x][1].ToString());
+            }
+            return dict;
+        }
+
+
+        /// <summary>
         /// Erzeugt neue Stammdaten eines Mitarbeiters
         /// </summary>
         /// <param name="form"></param>
@@ -88,14 +115,15 @@ namespace MelBox2Dienst
             {
                 { "@Name", WebUtility.UrlDecode(form["Name"]) },
                 { "@Phone", '+' + WebUtility.UrlDecode(form["Phone"].TrimStart('+').Replace(" ", "")) },
-                { "@Email", WebUtility.UrlDecode(form["Email"]) }
+                { "@Email", WebUtility.UrlDecode(form["Email"]) },
+                { "@Color", WebUtility.UrlDecode(form["Color"]) }
             };
 
             _ = Sql.NonQuery(
                 @"INSERT INTO Service ( 
-                Name, Phone, Email
+                Name, Phone, Email, Color
                 ) VALUES ( 
-                @Name, @Phone, @Email 
+                @Name, @Phone, @Email, @Color
                 );", args);
         }
 
@@ -116,14 +144,16 @@ namespace MelBox2Dienst
                 { "@Id", form["Id"] },
                 { "@Name", WebUtility.UrlDecode(form["Name"]) },
                 { "@Phone", '+' + WebUtility.UrlDecode(form["Phone"].TrimStart('+').Replace(" ", "")) },
-                { "@Email", WebUtility.UrlDecode(form["Email"]) }               
+                { "@Email", WebUtility.UrlDecode(form["Email"]) },
+                { "@Color", WebUtility.UrlDecode(form["Color"]) }
             };
 
             _ = Sql.NonQuery(
                 @"Update Service SET 
                 Name = @Name,
                 Phone = @Phone,
-                Email = @Email              
+                Email = @Email,
+                Color = @Color  
                 WHERE Id = @Id;", args);
         }
 
