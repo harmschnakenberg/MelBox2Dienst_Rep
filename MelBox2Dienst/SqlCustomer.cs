@@ -60,6 +60,65 @@ namespace MelBox2Dienst
         }
 
         /// <summary>
+        /// Ermittel die Id des Absender einer SMS oder erstellt sie.
+        /// </summary>
+        /// <param name="sms">Empfangene SMS</param>
+        /// <returns>Id die Absenders ind er Datenbank</returns>
+        internal static uint GetCustomerId(Sms sms)
+        {
+            //Erst nach Keyword suchen, da Phone nicht eindeutig sein kann.
+            const string query1 = "SELECT Id FROM Customer WHERE Phone = @Phone AND (KeyWord IS NULL OR length(KeyWord) = 0 OR LOWER(KeyWord) = @KeyWord) ORDER BY KeyWord DESC; ";
+            const string query2 = "INSERT INTO Customer (Name, Phone, KeyWord) VALUES ('Neu_' || @KeyWord || @Phone, @Phone, @KeyWord); ";
+
+            Dictionary<string, object> args = new Dictionary<string, object>
+            {
+                { "@Phone", sms.Phone },
+                { "@KeyWord", GetKeyWord(sms.Content) }
+            };
+                        
+            _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out uint customerId);
+
+            if (customerId == 0) // Nicht gefunden
+            {
+                Sql.NonQuery(query2, args);
+                _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out customerId);
+            }
+
+            return customerId;
+        }
+
+        /// <summary>
+        /// Aus altem MelBox:
+        ///   AbsKey: in AbsKey kann ein Schlüsselwort eingetragen werden, um Absender die
+        ///   keine Nummern in gesendeten SMS'en übermitteln (z.B. D2) zu unterscheiden.
+        ///   Wird in den ersten 10 Zeichen ein gleichnamiges Wort VOR EINEM KOMMA gefunden
+        ///   wird die SMS dem Absender AbsID zugeordnet.
+        /// </summary>
+        /// <param name="message">Inhalt einer Nachricht</param>
+        /// <returns></returns>
+        private static string GetKeyWord(string message)
+        {
+            // char[] split = new char[] { ' ', ',', '-', '.', ':', ';' };
+            char[] split = new char[] { ',' };
+            string[] words = message.Split(split);
+            string keyWords;
+
+            if (words.Length > 0)
+                keyWords = words[0].Trim().Substring(0, Math.Min(10, words[0].Length));
+            else
+                keyWords = message.Substring(0, 10);
+
+            //if (words.Length > 1)
+            //{
+            //    KeyWords += words[1].Trim();
+            //}
+
+            return keyWords.ToLower();
+        }
+
+
+
+        /// <summary>
         /// Erzeugt neue Stammdaten eines Kunden
         /// </summary>
         /// <param name="form"></param>

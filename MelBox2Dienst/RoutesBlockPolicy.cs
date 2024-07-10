@@ -23,16 +23,15 @@ namespace MelBox2Dienst
             if (!context.Request.QueryString.HasKeys())
             {
                 html +=
-                    "<h4>Gesperrte Nachrichten</h4>" +
+                    "<h4>Gesperrte Meldungen</h4>" +
+                    "<div>Diese Meldungen werden durch eine Sperregel zu bestimmten Zeiten nicht an die Bereitschaft weitergeleitet:</div>" +
                     Html.ConvertDataTable(
                     Sql.SelectAllBlockedMessages(),
-                    new Dictionary<string, string>() { { "Nr", "blocked" } }
+                    new Dictionary<string, string>() { { "Id", "blocked" } }
 
                 ) + "<hr><h4>Sperregeln</h4>" +
-                Html.ConvertDataTable(
-                    Sql.SelectAllBlockPolicies(),
-                    new Dictionary<string, string>() { { "Sperregel", "blocked" } }
-                );
+                "<div>Dies sind die verfügbaren Sperregeln. In den markierten Zeitr&auml;umen werden eingehende Meldungen nicht an die Bereitschaft weitergeleitet:</div>" +
+                Html.BlockPolicySelection(Sql.SelectAllBlockPolicies(), 0,0 );
             }
             #endregion
             #region Suche nach Sperregel
@@ -48,7 +47,7 @@ namespace MelBox2Dienst
             }
             #endregion
             #region Suche nach Nachricht-Id
-            else if (uint.TryParse(context.Request.QueryString.Get("Nr"), out uint messageId))
+            else if (uint.TryParse(context.Request.QueryString.Get("Id"), out uint messageId))
             {
                 DataTable dt = Sql.SelectMessageByMessagedId(messageId);
                 _= uint.TryParse(dt.Rows[0]["Sperregel"]?.ToString(), out uint messageBlockPolicyId);
@@ -91,8 +90,6 @@ namespace MelBox2Dienst
         {
             Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
             Sql.InsertBlockPolicy(formContent);
-
-            //context.Request.QueryString.Add("Sperregel", formContent["Id"]);
             await BlockedMessages(context);
         }
 

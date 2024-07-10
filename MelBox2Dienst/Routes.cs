@@ -66,6 +66,7 @@ namespace MelBox2Dienst
                 {
                     html +=
                         Html.ConvertDataTable(Sql.SelectMessageByRecievedId(recId)) +
+                        "<h3>Sperregeln</h3>" +
                         Html.BlockPolicySelection(Sql.SelectAllBlockPolicies(), Sql.SelectBlockPolicyIdFromRecievedId(recId), Sql.SelectMessageIdByRecievedId(recId));
                 }
                 #endregion
@@ -95,9 +96,9 @@ namespace MelBox2Dienst
             else
                 dataTable = Sql.SelectSent(100);
             #endregion
-#if DEBUG
-            Console.WriteLine(date);
-#endif
+//#if DEBUG
+//            Console.WriteLine(date);
+//#endif
             string html = Html.Sceleton(
                     Html.DatePicker("out", date) +
                     Html.ConvertDataTable(
@@ -126,10 +127,10 @@ namespace MelBox2Dienst
 
                 dataTable = Sql.SelectLog(date);
             }            
-            #endregion
-#if DEBUG
-            Console.WriteLine(date);
-#endif
+//            #endregion
+//#if DEBUG
+//            Console.WriteLine(date);
+//#endif
             string html = Html.Sceleton(
                     Html.DatePicker("log", date) +
                     Html.ConvertDataTable(
@@ -151,6 +152,8 @@ namespace MelBox2Dienst
 
             if (!context.Request.QueryString.HasKeys())
             {
+                html += $"<div class='container'>Sprachanrufe gehen zurzeit an <span class='badge bg-secondary'>{Sql.CallRelayPhone}</span></div>";
+
                 dataTable = Sql.SelectAllGuards();
                 html += Html.GuardCalender(dataTable);
             }
@@ -171,9 +174,9 @@ namespace MelBox2Dienst
             }
 
             #endregion
-#if DEBUG
-            Console.WriteLine(date);
-#endif
+//#if DEBUG
+//            Console.WriteLine(date);
+//#endif
 
             await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
         }

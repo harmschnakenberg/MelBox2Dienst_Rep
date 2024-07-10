@@ -10,6 +10,9 @@ namespace MelBox2Dienst
 {
     internal static partial class Sql
     {
+        public static string From { get; set; } = "SMSZentrale@Kreutztraeger.de"; 
+
+
         #region Empfang von Nachrichten
         /// <summary>
         /// Liste empfangene Nachrichten eines bestimmten Datums
@@ -59,6 +62,105 @@ namespace MelBox2Dienst
                     LIMIT @Limit", args);
         }
 
+        /// <summary>
+        /// Trägt eine neu Empfangene Nachricht in die Datenbank ein und gibt derne Id wieder.
+        /// </summary>
+        /// <param name="sms">Empfangene Nachricht</param>
+        /// <returns>Id des Inhalts der Nachricht (Message.Id)</returns>
+        internal static uint CreateRecievedMessage(Sms sms)
+        {
+            #region Absender protokollieren und identifizieren
+            uint customerId = Sql.GetCustomerId(sms);
+            uint messageId = Sql.SelectMessageIdByContent(sms.Content);
+            #endregion
+
+            #region Sms-Empfang protokollieren
+            Dictionary<string, object> args = new Dictionary<string, object>
+                {
+                    { "@Time", sms.Time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")},
+                    { "@SenderId", customerId},
+                    { "@ContentId", messageId }
+                };
+
+            const string query = "INSERT INTO Recieved (Time, SenderId, ContentId) VALUES (@Time, @SenderId, @ContentId);";
+                //"SELECT MAX(Id) FROM Recieved;";
+
+            Sql.NonQuery(query, args);
+            //_ = uint.TryParse(Sql.SelectValue(query, args)?.ToString(), out uint recivedId);
+            #endregion
+
+            return messageId;
+        }
+
+
+
+        internal static bool MessageRecieveAndRelay(Sms sms)
+        {
+            try
+            {
+                uint messageId = Sql.CreateRecievedMessage(sms);
+                bool isBlocked = Sql.IsMessageBlocked(messageId);
+
+                #region Finde heraus, wer Bereitschaft hat
+                List<Service> permanentGuards = Sql.SelectPermamanentGuards();
+                List<Service> currentGuards = Sql.SelectCurrentGuards();
+
+                if (!isBlocked)
+                    permanentGuards.AddRange(currentGuards);
+                #endregion
+
+                #region Email versenden
+                string body = $"SMS Absender >{sms.Phone}<\r\n" +
+                    $"SMS Text >{sms.Content}<\r\n" +
+                    $"SMS Sendezeit >{sms.Time}<\r\n\r\n";
+
+                if (isBlocked)
+                    body += "Keine Weiterleitung an Bereitschaftshandy da SMS gesperrt.\r\n";
+
+                //Email email = new Email(From, permanentGuards.Select(x => x.Email).ToList(), body);
+                //Pipes.SendEmail(email);
+
+                #endregion
+
+                #region SMS versenden
+                //TODO
+                if (!isBlocked)
+                    //Pipes.SendSms(currentGuards.Select(x => x.Phone).ToList(), sms, messageId);
+                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).ToList(), sms, messageId);
+                #endregion
+
+                return messageId > 0;
+            }
+            catch (Exception ex) 
+            {
+                Log.Error($"Fehler MessageRecieveAndRelay() {ex}");
+                return false; 
+            }
+        }
+
+        /// <summary>
+        /// Prüft, ob die empfangene Nachricht gerade gesperrt ist.
+        /// </summary>
+        /// <param name="messageId">Id der Nachricht (Inhalt) in Tabelle Message</param>
+        /// <returns>true = Nachricht ist zur Zeit gesperrt</returns>
+        internal static bool IsMessageBlocked(uint messageId)
+        {
+            Dictionary<string, object> args = new Dictionary<string, object>
+            {
+                { "@MessageId", messageId }
+            };
+
+            short isMessageBlocked = Convert.ToInt16(
+                Sql.SelectValue(
+                //@"SELECT 1 WHERE (SELECT BlockPolicyId FROM Message 
+                //WHERE Id = (SELECT ContentId FROM Recieved WHERE Id = 4)) IN (SELECT BlockPolicyId FROM View_BlockedNow WHERE BlockedNow > 0);"
+                @"SELECT 1 WHERE (SELECT BlockPolicyId FROM Message WHERE Id = @MessageId) IN (SELECT BlockPolicyId FROM View_BlockedNow WHERE BlockedNow > 0);"
+                , args));
+
+            return isMessageBlocked > 0;
+        }
+
+
         #endregion
 
 
@@ -69,7 +171,7 @@ namespace MelBox2Dienst
         /// <returns></returns>
         internal static DataTable SelectAllBlockedMessages()
         {
-            const string query1 = "SELECT Id AS Nr, Content AS Inhalt, BlockPolicyId AS Sperregel FROM Message Where BlockPolicyId <> 0;"; //Alle Nachrichten, die eine Sperregel haben
+            const string query1 = "SELECT Id, Content AS Inhalt, BlockPolicyId AS Sperregel FROM Message Where BlockPolicyId <> 0;"; //Alle Nachrichten, die eine Sperregel haben
             return Sql.SelectDataTable(query1, null);
         }
 
@@ -282,6 +384,22 @@ namespace MelBox2Dienst
                 FROM Message WHERE Id = @Id;", args);
         }
 
+        internal static uint SelectMessageIdByContent(string message) //ungetestet
+        {
+            Dictionary<string, object> args = new Dictionary<string, object>
+            {
+                { "@Message", message }
+            };
+
+            //TODO: Sicherstellen, dass der inhalt von Message eindeuig in der Datenbank ist!!!
+            const string query = "INSERT OR IGNORE INTO Message (Content, BlockPolicyId) VALUES (@Message, 0); " +
+                "SELECT Id, BlockPolicyId FROM Message WHERE Content = @Message; ";
+
+            var messageIdObj = Sql.SelectValue(query, args);
+            _ = uint.TryParse(messageIdObj?.ToString(), out uint messageId);
+           
+            return messageId;
+        }
 
         /// <summary>
         /// Finde die Sperregel zu einer empfangenen Nachricht
@@ -299,6 +417,12 @@ namespace MelBox2Dienst
 
             return uint.Parse(messageId.ToString());
         }
+
+        
+
+       
+
+
 
         /// <summary>
         /// Ändert eine vorhandene Sperregel
@@ -376,11 +500,42 @@ namespace MelBox2Dienst
                 LIMIT @Limit", args);
         }
 
+        /// <summary>
+        /// Trägt eine versendete Nachricht in die DB ein 
+        /// </summary>
+        /// <param name="sms">SMS-Object mit indernem Index aus dem GSM-Modem</param>
+        internal static uint CreateSent(uint messageId, Sms sms)
+        {
+            #region Empfänger protokollieren und identifizieren
+            uint serviceId = Sql.GetServiceId(sms);
+            //uint messageId = Sql.SelectMessageIdByContent(sms.Content);
+            #endregion
+
+            #region Sms-Empfang protokollieren
+            Dictionary<string, object> args = new Dictionary<string, object>
+                {
+                    { "@Time", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")},
+                    { "@ToId", serviceId},
+                    { "@ContentId", messageId },
+                    { "@Reference", sms.Index }
+                };
+
+            const string query = @"INSERT INTO Sent (Time, ToId, ContentId, Reference) VALUES (@Time, @ToId, @ContentId, @Reference );
+                SELECT MAX(Id) FROM Sent;";
+
+            _ = uint.TryParse(Sql.SelectValue(query, args)?.ToString(), out uint sentId);
+            #endregion
+
+            return sentId;
+        }
+
+
         #endregion
-   
-    
-    
+
+
+
     }
+
 
     /// <summary>
     /// SMS
@@ -403,5 +558,75 @@ namespace MelBox2Dienst
 
         public string Content { get; set; }
     }
+
+
+    /// <summary>
+    /// Empfangsbestätigung / Sendebestätigung einer SMS 
+    /// </summary>
+    public class StatusReport
+    {
+        public StatusReport(int index, int reference, DateTimeOffset dischargeTimeUtc, int deliveryStatus)
+        {
+            Index = index;
+            Reference = reference;
+            DischargeTimeUtc = dischargeTimeUtc;
+            DeliveryStatus = deliveryStatus;
+        }
+
+        public int Index { get; set; }
+
+        public int Reference { get; set; }
+
+        public DateTimeOffset DischargeTimeUtc { get; set; }
+
+        public int DeliveryStatus { get; set; }
+
+        public string DeliveryStatusText
+        {
+            get
+            {
+                //siehe Spezifikation GSM 3.40
+                if (GetBit(DeliveryStatus, 6))
+                    return "Fehler. Sendeversuch abgebrochen.";
+
+                if (GetBit(DeliveryStatus, 5))
+                    return "Fehler. Weiteren Sendeversuch abwarten.";
+
+                if (GetBit(DeliveryStatus, 1))
+                    return "Die Nachricht wurde vom Provider ersetzt.";
+
+                if (GetBit(DeliveryStatus, 0))
+                    return "Nachricht zugestellt. Keine Empfangsbestätigung.";
+
+                if (DeliveryStatus == 0)
+                    return "Empfangsbestätigung vom Empfänger erhalten.";
+
+                return $"Sendunsgstatus = {DeliveryStatus}";
+            }
+        }
+
+        private bool GetBit(int pByte, int bitNo)
+        {
+            return (pByte & (1 << bitNo)) != 0;
+        }
+
+    }
+
+
+    public class Email
+    {
+        public Email(string from, List<string> to, string content) {
+            From = from;
+            To = to;
+            Body = content;
+        }
+
+        public string From { get; set; }
+
+        public List<string> To { get; set; }
+
+        public string Body {get; set; }
+    }
+
 
 }

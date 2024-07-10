@@ -47,7 +47,7 @@ namespace MelBox2Dienst
                                     "<nav class='navbar navbar-expand-sm'>\r\n" +
                                     "  <div class='container-fluid'>\r\n" +
                                     Logo +
-                                    "    <a class='navbar-brand' href='javascript:void(0)'>Kreutztr&auml;ger</a>\r\n" +
+                                    "    <a class='navbar-brand' href='http://192.168.165.192:5555'>Kreutztr&auml;ger</a>\r\n" +
                                     "    <button class='navbar-toggler' type='button' data-bs-toggle='collapse' data-bs-target='#mynavbar'>\r\n" +
                                     "      <span class='navbar-toggler-icon'></span>\r\n" +
                                     "    </button>\r\n" +
@@ -149,7 +149,7 @@ namespace MelBox2Dienst
         /// <param name="name1">FormName Wert 1</param>
         /// <param name="name2">FormName Wert 2</param>
         /// <returns></returns>
-        public static string SelectFieledHour(string label, string name1, string name2, int selectedValue1, int selectedValue2)
+        public static string SelectBlockedHour(string label, string name1, string name2, int selectedValue1, int selectedValue2)
         {
             // Console.WriteLine($"{label}: {name1}={selectedValue1}, {name2}={selectedValue2}");
 
@@ -252,16 +252,16 @@ namespace MelBox2Dienst
                 "<form action='/blocked/update' method='post'>\r\n" +
                 "  <label for='comment'>Beschreibung:</label>\r\n" +
                 $" <textarea class='form-control' id='comment' name='Comment'>{dt.Rows[0]["Comment"]}</textarea>\r\n" +
-                "<span class='badge'>Weiterleitung gesperrt</span>" +
+                "Weiterleitung gesperrt zu folgenden Zeiten:" +
                 $" <input type='hidden' name='Id' value='{dt.Rows[0]["Id"]}'>" +
                 " <div class=\"input-group mb-3\">" +
-                    SelectFieledHour("Mo", "MonStart", "MonEnd", int.Parse(dt.Rows[0]["MonStart"].ToString()), int.Parse(dt.Rows[0]["MonEnd"].ToString())) +
-                    SelectFieledHour("Di", "TueStart", "TueEnd", int.Parse(dt.Rows[0]["TueStart"].ToString()), int.Parse(dt.Rows[0]["ThuEnd"].ToString())) +
-                    SelectFieledHour("Mi", "WenStart", "WenEnd", int.Parse(dt.Rows[0]["WenStart"].ToString()), int.Parse(dt.Rows[0]["WenEnd"].ToString())) +
-                    SelectFieledHour("Do", "ThuStart", "ThuEnd", int.Parse(dt.Rows[0]["ThuStart"].ToString()), int.Parse(dt.Rows[0]["ThuEnd"].ToString())) +
-                    SelectFieledHour("Fr", "FriStart", "FriEnd", int.Parse(dt.Rows[0]["FriStart"].ToString()), int.Parse(dt.Rows[0]["FriEnd"].ToString())) +
-                    SelectFieledHour("Sa", "SatStart", "SatEnd", int.Parse(dt.Rows[0]["SatStart"].ToString()), int.Parse(dt.Rows[0]["SatEnd"].ToString())) +
-                    SelectFieledHour("So", "SunStart", "SunEnd", int.Parse(dt.Rows[0]["SunStart"].ToString()), int.Parse(dt.Rows[0]["SunEnd"].ToString())) +
+                    SelectBlockedHour("Mo", "MonStart", "MonEnd", int.Parse(dt.Rows[0]["MonStart"].ToString()), int.Parse(dt.Rows[0]["MonEnd"].ToString())) +
+                    SelectBlockedHour("Di", "TueStart", "TueEnd", int.Parse(dt.Rows[0]["TueStart"].ToString()), int.Parse(dt.Rows[0]["ThuEnd"].ToString())) +
+                    SelectBlockedHour("Mi", "WenStart", "WenEnd", int.Parse(dt.Rows[0]["WenStart"].ToString()), int.Parse(dt.Rows[0]["WenEnd"].ToString())) +
+                    SelectBlockedHour("Do", "ThuStart", "ThuEnd", int.Parse(dt.Rows[0]["ThuStart"].ToString()), int.Parse(dt.Rows[0]["ThuEnd"].ToString())) +
+                    SelectBlockedHour("Fr", "FriStart", "FriEnd", int.Parse(dt.Rows[0]["FriStart"].ToString()), int.Parse(dt.Rows[0]["FriEnd"].ToString())) +
+                    SelectBlockedHour("Sa", "SatStart", "SatEnd", int.Parse(dt.Rows[0]["SatStart"].ToString()), int.Parse(dt.Rows[0]["SatEnd"].ToString())) +
+                    SelectBlockedHour("So", "SunStart", "SunEnd", int.Parse(dt.Rows[0]["SunStart"].ToString()), int.Parse(dt.Rows[0]["SunEnd"].ToString())) +
                 "</div>\r\n" +
 
                 "<div class='btn-group'>\r\n" +
@@ -273,7 +273,7 @@ namespace MelBox2Dienst
                 "function f(n1, n2) {\r\n" + //Dynamischer Farbumschlag: Prüfe gültige Uhrzeitkombination
                 "  let o1 = document.getElementsByName(n1)[0];\r\n" +
                 "  let o2 = document.getElementsByName(n2)[0];\r\n" +
-                "   alert(o1.value + ' - ' + o2.value);" +
+               // "   alert(o1.value + ' - ' + o2.value);" +
                 "  if (parseInt(o1.value) >= parseInt(o2.value)) {\r\n" +
                 "    o1.classList.add('bg-secondary');\r\n" +
                 "    o2.classList.add('bg-secondary');\r\n" +
@@ -386,8 +386,7 @@ namespace MelBox2Dienst
 
             //add header row
             form += "<tr>";
-            //for (int i = 0; i < dt.Columns.Count; i++)
-            //    form += "<th>" + dt.Columns[i].ColumnName + "</th>";
+   
             form += "<th>Sperregel</th>" +
                 "<th><div class='row' style='width:48vw;'>" +
 
@@ -411,76 +410,66 @@ namespace MelBox2Dienst
 
                 form += "<td>";
 
-                form += "<div class='form-check'>\r\n" +
-                                $"  <input type='radio' class='form-check-input' id='policy{currentPolicyId}' name='PolicyId' value='{currentPolicyId}' {(selectedPolicy == uint.Parse(currentPolicyId.ToString()) ? "checked" : "")}>\r\n" +
+                form += "<div class='form-check'>\r\n";
+                    
+                if (messageId != 0)
+                    form +=     $"  <input type='radio' class='form-check-input' id='policy{currentPolicyId}' name='PolicyId' value='{currentPolicyId}' {(selectedPolicy == uint.Parse(currentPolicyId.ToString()) ? "checked" : "")}>\r\n" +
                                 $"  <label class='form-check-label' for='policy{currentPolicyId}'>{currentPolicyId}</label></div>\r\n";
+                else
+                    //form +=  $"<span class='badge bg-secondary'>{currentPolicyId}</span>";
+                    form += $"<a class='btn btn-primary' href='/blocked?Sperregel={currentPolicyId}'>{currentPolicyId}</span>";
 
                 form += "</td>\r\n<td>";
 
-                _ = uint.TryParse(dt.Rows[i]["MonStart"].ToString(), out uint monStart);
-                _ = uint.TryParse(dt.Rows[i]["MonEnd"].ToString(), out uint monEnd);
-                _ = uint.TryParse(dt.Rows[i]["TueStart"].ToString(), out uint tueStart);
-                _ = uint.TryParse(dt.Rows[i]["TueEnd"].ToString(), out uint tueEnd);
-                _ = uint.TryParse(dt.Rows[i]["WenStart"].ToString(), out uint wenStart);
-                _ = uint.TryParse(dt.Rows[i]["WenEnd"].ToString(), out uint wenEnd);
-                _ = uint.TryParse(dt.Rows[i]["ThuStart"].ToString(), out uint thuStart);
-                _ = uint.TryParse(dt.Rows[i]["ThuEnd"].ToString(), out uint thuEnd);
-                _ = uint.TryParse(dt.Rows[i]["FriStart"].ToString(), out uint friStart);
-                _ = uint.TryParse(dt.Rows[i]["FriEnd"].ToString(), out uint friEnd);
-                _ = uint.TryParse(dt.Rows[i]["SatStart"].ToString(), out uint satStart);
-                _ = uint.TryParse(dt.Rows[i]["SatEnd"].ToString(), out uint satEnd);
-                _ = uint.TryParse(dt.Rows[i]["SunStart"].ToString(), out uint sunStart);
-                _ = uint.TryParse(dt.Rows[i]["SunEnd"].ToString(), out uint sunEnd);
-
-                form += "<div class='progress'  style='height:2em; width:48vw;'>" +
-
-                      $" <div class='progress-bar bg-secondary' style='width:{monStart}vw'></div>" +
-                      $" <div class='progress-bar bg-danger' style='width:{monEnd - monStart}vw'>{monStart}-{monEnd} Uhr</div>" +
-                      $" <div class='progress-bar bg-secondary' style='width:{24 - monEnd}vw'></div>" +
-                      $" <div class='progress-bar bg-light' style='width:4px'></div>" +
-
-                      $" <div class='progress-bar bg-secondary' style='width:{tueStart}vw'></div>" +
-                      $" <div class='progress-bar bg-danger' style='width:{tueEnd - tueStart}vw'>{tueStart}-{tueEnd} Uhr</div>" +
-                      $" <div class='progress-bar bg-secondary' style='width:{24 - tueEnd}vw'></div>" +
-                      $" <div class='progress-bar bg-light' style='width:4px;'></div>" +
-
-                      $" <div class='progress-bar bg-secondary' style='width:{wenStart}vw'></div>" +
-                      $" <div class='progress-bar bg-danger' style='width:{wenEnd - wenStart}vw'>{wenStart}-{wenEnd} Uhr</div>" +
-                      $" <div class='progress-bar bg-secondary' style='width:{24 - wenEnd}vw'></div>" +
-                      $" <div class='progress-bar bg-light' style='width:4px;'></div>" +
-
-                      $" <div class='progress-bar bg-secondary' style='width:{thuStart}vw'></div>" +
-                      $" <div class='progress-bar bg-danger' style='width:{thuEnd - thuStart}vw'>{thuStart}-{thuEnd} Uhr</div>" +
-                      $" <div class='progress-bar bg-secondary' style='width:{24 - thuEnd}vw'></div>" +
-                      $" <div class='progress-bar bg-light' style='width:4px;'></div>" +
-
-                      $" <div class='progress-bar bg-secondary' style='width:{friStart}vw'></div>" +
-                      $" <div class='progress-bar bg-danger' style='width:{friEnd - friStart}vw'>{friStart}-{friEnd} Uhr</div>" +
-                      $" <div class='progress-bar bg-secondary' style='width:{24 - friEnd}vw'></div>" +
-                      $" <div class='progress-bar bg-light' style='width:4px;'></div>" +
-
-                      $" <div class='progress-bar bg-secondary' style='width:{satStart}vw'></div>" +
-                      $" <div class='progress-bar bg-danger' style='width:{satEnd - satStart}vw'> {satStart}-{satEnd} Uhr</div>" +
-                      $" <div class='progress-bar bg-secondary' style='width:{24 - satEnd}vw'></div>" +
-                      $" <div class='progress-bar bg-light' style='width:4px;'></div>" +
-
-                      $" <div class='progress-bar bg-secondary' style='width:{sunStart}vw'></div>" +
-                      $" <div class='progress-bar bg-danger' style='width:{sunEnd - sunStart}vw'> {sunStart}-{sunEnd} Uhr</div>" +
-                      $" <div class='progress-bar bg-secondary' style='width:{24 - sunEnd}vw'></div>" +
-            
+                form += "<div class='progress'  style='height:3.3em; width:48vw;'>" +
+                    ProgressbarHelper("Mo", dt.Rows[i]["MonStart"], dt.Rows[i]["MonEnd"]) +
+                    "<div class='progress-bar bg-light' style='width:4px'></div>" +
+                    ProgressbarHelper("Mo", dt.Rows[i]["TueStart"], dt.Rows[i]["TueEnd"]) +
+                    "<div class='progress-bar bg-light' style='width:4px'></div>" +
+                    ProgressbarHelper("Mo", dt.Rows[i]["WenStart"], dt.Rows[i]["WenEnd"]) +
+                    "<div class='progress-bar bg-light' style='width:4px'></div>" +
+                    ProgressbarHelper("Mo", dt.Rows[i]["ThuStart"], dt.Rows[i]["ThuEnd"]) +
+                    "<div class='progress-bar bg-light' style='width:4px'></div>" +
+                    ProgressbarHelper("Mo", dt.Rows[i]["FriStart"], dt.Rows[i]["FriEnd"]) +
+                    "<div class='progress-bar bg-light' style='width:4px'></div>" +
+                    ProgressbarHelper("Mo", dt.Rows[i]["SatStart"], dt.Rows[i]["SatEnd"]) +
+                    "<div class='progress-bar bg-light' style='width:4px'></div>" +
+                    ProgressbarHelper("Mo", dt.Rows[i]["SunStart"], dt.Rows[i]["SunEnd"]) +                  
                 "</div>";
 
                 form += "</td>\r\n" +
                        $"<td>{dt.Rows[i]["Kommentar"]}</td>" +
                         "</tr>\r\n";
             }
-            form += "</table>" +
-            "<button type='submit' class='btn btn-primary mt-3'>Sperregel ändern</button>\r\n" +
-            "</form>";
+            form += "</table>";
+
+            form += "<script>" +
+                "</script>";
+            
+            if (messageId != 0)
+                form += "<button type='submit' class='btn btn-primary mt-3'>Sperregel f&uuml;r diese Meldung &auml;ndern</button>\r\n";
+            
+            form += "</form>";
 
             return form;
         }
 
+        /// <summary>
+        /// Erstellt ein Teilelement für einen Progress-Bar zum anzeigen eines Zeitraumes an einem Tag
+        /// </summary>
+        /// <param name="dayName">Anzeigename für den Wochentag</param>
+        /// <param name="startObj">Startstunde als Object</param>
+        /// <param name="endObj">Endstunde als Object</param>
+        /// <returns></returns>
+        private static string ProgressbarHelper(string dayName, object startObj, object endObj)
+        {
+            _ = uint.TryParse(startObj.ToString(), out uint start);
+            _ = uint.TryParse(endObj.ToString(), out uint end);
+
+            return $" <div class='progress-bar bg-secondary' style='width:{start}vw'></div>\r\n" +
+                   $" <div class='progress-bar bg-danger' style='width:{end - start}vw' data-bs-toggle='tooltip' title='{dayName} {start}-{end} Uhr'>{start}-{end}<br/>Uhr</div>\r\n" +
+                   $" <div class='progress-bar bg-secondary' style='width:{24 - end}vw'></div>\r\n";
+        }
 
         public static string GuardCalender(DataTable dt)
         {
@@ -639,20 +628,20 @@ namespace MelBox2Dienst
               darkColor : lightColor;
         }
 
-        private static string ComplementColor(string origColor)
-        {
-            if (origColor.Length < 7)
-                return "#000000";
+        //private static string ComplementColor(string origColor)
+        //{
+        //    if (origColor.Length < 7)
+        //        return "#000000";
 
-            //Quelle: https://stackoverflow.com/questions/98559/how-to-parse-hex-values-into-a-uint
-            var color = origColor.Substring(1);
+        //    //Quelle: https://stackoverflow.com/questions/98559/how-to-parse-hex-values-into-a-uint
+        //    var color = origColor.Substring(1);
 
-            var r = Convert.ToUInt32(color.Substring(0, 2), 16); // hexToR
-            var g = Convert.ToUInt32(color.Substring(2, 2), 16); // hexToG
-            var b = Convert.ToUInt32(color.Substring(4, 2), 16); // hexToB   
+        //    var r = Convert.ToUInt32(color.Substring(0, 2), 16); // hexToR
+        //    var g = Convert.ToUInt32(color.Substring(2, 2), 16); // hexToG
+        //    var b = Convert.ToUInt32(color.Substring(4, 2), 16); // hexToB   
 
-            return $"#{255-r:X2}{g:X2}{b:X2}";
-        }
+        //    return $"#{255-r:X2}{g:X2}{b:X2}";
+        //}
 
         public static string GuardFormUpdate(DataTable dt)
         {

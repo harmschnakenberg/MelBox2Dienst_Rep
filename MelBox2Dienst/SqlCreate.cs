@@ -95,7 +95,8 @@ namespace MelBox2Dienst
                         Name TEXT NOT NULL UNIQUE, 
                         Phone TEXT, 
                         Email TEXT,
-                        Color TEXT DEFAULT '#CCCCCC'
+                        RecAllMails INTEGER DEFAULT 0,
+                        Color TEXT DEFAULT '#CCCCCC'                       
                         ); ";
                 NonQuery(query, null);
 
@@ -125,7 +126,7 @@ namespace MelBox2Dienst
                         Content TEXT NOT NULL UNIQUE, 
                         BlockPolicyId INTEGER, 
 
-                        CONSTRAINT fk_BlockPolicyId FOREIGN KEY (BlockPolicyId) REFERENCES BlockPolicy (Id) ON DELETE NO ACTION 
+                        CONSTRAINT fk_BlockPolicyId FOREIGN KEY (BlockPolicyId) REFERENCES BlockPolicy (Id) ON DELETE SET DEFAULT
                         ); ";
                 NonQuery(query, null);
 
@@ -184,6 +185,31 @@ namespace MelBox2Dienst
                         ); ";
                 NonQuery(query, null);
 
+                query = @"CREATE VIEW View_BlockedNow AS 
+                        SELECT Id AS BlockPolicyId,
+                        CAST(strftime('%H', 'now', 'localtime') AS INTEGER) 
+                        BETWEEN 
+                         CASE CAST (strftime('%w', 'now', 'localtime') AS INTEGER)
+                          WHEN 0 THEN SunStart
+                          WHEN 1 THEN MonStart
+                          WHEN 2 THEN TueStart
+                          WHEN 3 THEN WenStart
+                          WHEN 4 THEN ThuStart
+                          WHEN 5 THEN FriStart 
+                          WHEN 6 THEN SatStart 
+                         END 
+                        AND
+                         CASE CAST (strftime('%w', 'now', 'localtime') AS INTEGER)
+                          WHEN 0 THEN SunEnd
+                          WHEN 1 THEN MonEnd
+                          WHEN 2 THEN TueEnd
+                          WHEN 3 THEN WenEnd
+                          WHEN 4 THEN ThuEnd
+                          WHEN 5 THEN FriEnd 
+                          WHEN 6 THEN SatEnd 
+                         END AS BlockedNow
+                         FROM BlockPolicy; ";
+
                 query = @"CREATE VIEW View_AllShiftDays AS 
                         SELECT d AS Tag, COUNT(d) AS Belegung, ToId
                         FROM View_YearFromToday 
@@ -191,6 +217,16 @@ namespace MelBox2Dienst
                         GROUP BY d 
                         HAVING Max(Start) 
                         ORDER BY d; ";
+                NonQuery(query, null);
+
+                query = @"CREATE VIEW View_CurrentShift AS 
+                        SELECT Name, Phone, Email
+                        FROM SHIFT AS g
+                        JOIN Service AS s ON g.ToId = s.Id
+                        WHERE current_timestamp BETWEEN Start AND End
+                        UNION 
+                        SELECT Name, Phone, Email
+                        FROM Service WHERE Name = 'Bereitschaftshandy' AND NOT EXISTS (SELECT Id FROM Shift WHERE current_timestamp BETWEEN Start AND End)";
                 NonQuery(query, null);
 
                 query = @"CREATE VIEW View_Sent AS 
@@ -237,12 +273,14 @@ namespace MelBox2Dienst
                             , Sa || CASE WHEN Sa IN (SELECT Tag FROM View_AllShiftDays) THEN (SELECT Belegung||ToId FROM View_AllShiftDays WHERE Tag = Sa) ELSE '' END AS Sa
                             , So || CASE WHEN So IN (SELECT Tag FROM View_AllShiftDays) THEN (SELECT Belegung||ToId FROM View_AllShiftDays WHERE Tag = So) ELSE '' END AS So
                             FROM View_Calendar
-                            LEFT JOIN Shift AS s ON (strftime('%W%Y', Mo) BETWEEN strftime('%W%Y', s.Start) AND strftime('%W%Y', s.End, '-1 day'))
+                            LEFT JOIN Shift AS s ON (strftime('%Y%W', Mo) BETWEEN strftime('%Y%W', s.Start) AND strftime('%Y%W', s.End, '-1 day'))
                             LEFT JOIN Service p ON s.ToId = p.Id
                             ORDER BY Mo; ";
                 NonQuery(query, null);
 
-
+                //query = @"CREATE TABLE IF NOT EXISTS Call (                        
+                //            Phone TEXT NOT NULL DEFAULT '+491728362586' 
+                //            );";
                 #endregion
 
                 #region Tabellen füllen
@@ -251,7 +289,7 @@ namespace MelBox2Dienst
 
                 query += $"INSERT INTO Customer (Name, Phone, Email, KeyWord, MaxInactiveHours) VALUES ('TestKunde', '+4916095285xxx', 'harm.schnakenberg@kreutztraeger.de', 'TestKunde', 0); ";
 
-                query += $"INSERT INTO Service (Id, Name, Phone, Email, Color) VALUES (0, 'SMSZentrale', '+4916095285xxx', 'harm.schnakenberg@kreutztraeger.de', '#6a5acd'); ";
+                query += $"INSERT INTO Service (Id, Name, Phone, Email, RecAllMails, Color) VALUES (0, 'SMSZentrale', '+4916095285xxx', 'harm.schnakenberg@kreutztraeger.de', 1, '#b4b4b4'); ";
 #if !DEBUG
                 query += $"INSERT INTO Service (Name, Phone, Email, Color)  VALUES ('Bereitschaftshandy', '+491728362586', 'bereitschaftshandy@kreutztraeger.de', '#0000ff'); ";
 #else
@@ -274,6 +312,7 @@ namespace MelBox2Dienst
 
                 query += "INSERT INTO Shift (ToId, Start, End) VALUES (0, DATETIME('now','weekday 1', '-3 days'), DATETIME('now','weekday 1','+7 day')); ";
 
+                //query += "INSERT INTO Call (Phone) VALUES ('+491728362586'); ";
                 NonQuery(query, null);
 
                 #endregion

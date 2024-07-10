@@ -34,6 +34,7 @@ namespace MelBox2Dienst
                 Name, 
                 Phone AS Mobil, 
                 Email,
+                RecAllMails AS Immer_Email,
                 Color AS Farbe
                 FROM Service 
                 WHERE Id = @Id;", args);
@@ -55,6 +56,29 @@ namespace MelBox2Dienst
                 FROM Service                       
                 WHERE Name LIKE %@Name%;", args);
         }
+
+        internal static uint GetServiceId(Sms sms)
+        {
+            //Erst nach Keyword suchen, da Phone nicht eindeutig sein kann.
+            const string query1 = "SELECT Id FROM Service WHERE Phone = @Phone LIMIT 1;";
+            const string query2 = "INSERT INTO Service (Name, Phone) VALUES ('Neu_' || @Phone, @Phone); ";
+
+            Dictionary<string, object> args = new Dictionary<string, object>
+            {
+                { "@Phone", sms.Phone }
+            };
+
+            _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out uint serviceId);
+
+            if (serviceId == 0) // Nicht gefunden
+            {
+                Sql.NonQuery(query2, args);
+                _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out serviceId);
+            }
+
+            return serviceId;
+        }
+
 
         internal static Dictionary<uint, string> ServiceNames()
         {
@@ -174,5 +198,31 @@ namespace MelBox2Dienst
 
         }
 
+    }
+
+    public class Service
+    {
+
+        public Service(DataTable dt)
+        {
+            Id = uint.Parse(dt.Rows[0]["Id"].ToString());
+            Name = dt.Rows[0]["Name"].ToString();
+            Phone = dt.Rows[0]["Phone"].ToString();
+            Email = dt.Rows[0]["Email"].ToString();
+        }
+
+        public Service(DataRow row)
+        {
+            //Id = uint.Parse(row["Id"].ToString());
+            Name = row["Name"].ToString();
+            Phone = row["Phone"].ToString();
+            Email = row["Email"].ToString();
+        }
+
+
+        public uint Id { get; set; }
+        public string Name { get; set; }
+        public string Phone { get; set; }
+        public string Email { get; set; }
     }
 }

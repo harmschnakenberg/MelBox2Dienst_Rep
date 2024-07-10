@@ -27,9 +27,10 @@ namespace MelBox2Dienst
 
         protected override void OnStart(string[] args)
         {
-           
-           // Pipes.StartPipeServer("myPipe");
-            Pipes.StartPipeServer2(Pipes.Name.Sms);
+            Pipe1.StartPipeServer(Pipe1.PipeName.MelBox2Service, true);
+            //Pipes.StartPipeServer2(Pipes.Name.MelBox2Service);
+            //Pipes.StartPipeServer2(Pipes.Name.SmsRecieved);
+            //Pipes.StartPipeServer2(Pipes.Name.EmailSend);
             Server.Start();
             Sql.CheckDbFile();
 
@@ -37,9 +38,9 @@ namespace MelBox2Dienst
             // Set up a timer that triggers every minute.
             Timer timer = new Timer
             {
-                Interval = 60000 // 60 seconds
+                Interval = 300000 // 5 Minuten 
             };
-            timer.Elapsed += new ElapsedEventHandler(this.OnTimer);
+            timer.Elapsed += new ElapsedEventHandler(this.OnTimerAsync);
             timer.Start();
             #endregion
 
@@ -60,12 +61,26 @@ namespace MelBox2Dienst
             this.OnStop();
         }
 
-        public void OnTimer(object sender, ElapsedEventArgs args)
+        public async void OnTimerAsync(object sender, ElapsedEventArgs args)
         {
             // TODO: Insert monitoring activities here.
            Log.Info("Monitoring the System " + DateTime.Now);
+
+            #region Prüfe Sprachweiterleitung
+            List<Service> currentService = Sql.SelectCurrentGuards();
+            foreach (Service service in currentService)
+            {
+                if (!Pipe1.IsPhoneNumber(service.Phone))
+                    continue;
+
+                if (service.Phone != Sql.CallRelayPhone) 
+                    Sql.CallRelayPhone = await Pipe1.RelayCall(service.Phone);
+                    
+                break;
+            }
+            #endregion
         }
 
-       
+
     }
 }

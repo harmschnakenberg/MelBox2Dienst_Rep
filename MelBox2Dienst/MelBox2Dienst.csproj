@@ -206,7 +206,9 @@
     <Compile Include="MelBox2Service.Designer.cs">
       <DependentUpon>MelBox2Service.cs</DependentUpon>
     </Compile>
-    <Compile Include="Pipe.cs" />
+    <Compile Include="Pipe1.cs" />
+    <Compile Include="PipeServer_LOESCHEN.cs" />
+    <Compile Include="PipeCommunication_LOESCHEN.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="ProjectInstaller.cs">
       <SubType>Component</SubType>

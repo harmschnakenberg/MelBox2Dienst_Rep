@@ -186,5 +186,51 @@ namespace MelBox2Dienst
             return null;
         }
 
+        /// <summary>
+        /// Gibt die erste Zeile der Abfrage als Dictionary (colName, Wert) aus.
+        /// </summary>
+        /// <param name="query"></param>
+        /// <param name="args"></param>
+        /// <returns>Dictionary (colName, Wert)</returns>
+        internal static Dictionary<string, object> SelectFirstRow(string query, Dictionary<string, object> args)
+        {
+            DataTable myTable = new DataTable();
+            Dictionary<string, object> dict = new Dictionary<string, object>();
+
+            try
+            {
+                using (var connection = new SQLiteConnection("Data Source=" + DbPath))
+                {
+
+                    connection.Open();
+
+                    var command = connection.CreateCommand();
+                    command.CommandText = query;
+
+                    if (args != null && args.Count > 0)
+                    {
+                        foreach (string key in args.Keys)
+                        {
+                            command.Parameters.AddWithValue(key, args[key]);
+                        }
+                    }
+
+                    using (var reader = command.ExecuteReader())
+                    {
+                        myTable.Load(reader);
+                    }
+
+                    foreach (DataColumn col in myTable.Columns)                    
+                        dict.Add(col.ColumnName, myTable.Rows[0][col]);                    
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("SqlSelectValue(): " + query + "\r\n" + ex.GetType() + "\r\n" + ex.Message);
+            }
+
+            return dict;
+        }
+
     }
 }

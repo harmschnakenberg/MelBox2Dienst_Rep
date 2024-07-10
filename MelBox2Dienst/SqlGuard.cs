@@ -10,6 +10,57 @@ namespace MelBox2Dienst
 {
     internal partial class Sql
     {
+        private static List<Service> CurrentGuards { get; set; } = new List<Service>();
+
+        public static string CallRelayPhone { get; set; } = "+491728362586";
+
+        /// <summary>
+        /// Stellt eine Liste der aktuellen Empfänger (Bereitschaft) auf.
+        /// </summary>
+        /// <returns>Liste der aktuellen Meldeempfänger (falls mehrfach belegt)</returns>
+        internal static List<Service> SelectCurrentGuards()
+        {
+            //Gibt die Kontaktdaten der eingeteilten bereitschaft aus - oder wenn nicht vorhanden - des Bereitschaftshandys
+            const string query = @"SELECT Name, Phone, Email FROM View_CurrentShift;";
+
+            DataTable dt = Sql.SelectDataTable(query, null);
+
+            List<Service> serviceList = new List<Service>();
+
+            foreach (DataRow row in dt.Rows)            
+                serviceList.Add(new Service(row));
+            
+            if (serviceList.Count == 0)
+                Log.Error("Es konnte kein Empfänger in der Bereitschaft ermittelt werden!");
+
+            if (serviceList != CurrentGuards) //Wenn sich die Bereitschaft geändert hat
+            {
+                CurrentGuards = serviceList;
+                //Rufumleitung ändern
+                //TODO  DBCommunication.SetCallRedirection(serviceList);
+            }
+
+            return serviceList;
+        }
+
+        internal static List<Service> SelectPermamanentGuards()
+        {
+            //Gibt die Kontaktdaten der eingeteilten ständigen Empfänger
+            const string query = @"SELECT Name, '' AS Phone, Email FROM Service WHERE RecAllMails > 0;";
+
+            DataTable dt = Sql.SelectDataTable(query, null);
+
+            List<Service> permanentServiceList = new List<Service>();
+
+            foreach (DataRow row in dt.Rows)
+                permanentServiceList.Add(new Service(row));
+
+            if (permanentServiceList.Count == 0)
+                Log.Error("Es konnte kein ständiger Empfänger ermittelt werden!");
+
+            return permanentServiceList;
+        }
+
 
         internal static DataTable SelectAllGuards()
         {
@@ -46,6 +97,8 @@ namespace MelBox2Dienst
                 WHERE Shift.Id = @Id;", args);
         }
 
+
+        #region CrUD Bereitschaft
 
         /// <summary>
         /// Ändert vorhandene Stammdaten eines Mitarbeiters
@@ -119,9 +172,7 @@ namespace MelBox2Dienst
 
 
         }
-
-       
-
+               
 
         internal static void CreateGuard(Dictionary<string, string> form)
         {
@@ -206,11 +257,6 @@ namespace MelBox2Dienst
 
             }
 
-         
-
-
-        
-
-
+        #endregion
     }
 }

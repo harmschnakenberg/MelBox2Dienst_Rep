@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.ServiceProcess;
@@ -39,18 +40,19 @@ namespace MelBox2Dienst
             Console.Read();
 #endif
         }
+       
     }
 
     internal static class Log
     {
         internal static void Info (string text)
         {
-            if (Program.IsRunningInConsole)
-                Console.WriteLine("Log > " + text);
-            else
-            {
+            //if (Program.IsRunningInConsole)
+            //    Console.WriteLine("Log > " + text);
+            //else
+            //{
                 Sql.InsertLog(3, text);
-            }
+            //}
         }
 
         internal static void Error(string text)
@@ -64,10 +66,10 @@ namespace MelBox2Dienst
                 Console.BackgroundColor = ConsoleColor.Black;
                 Console.ForegroundColor = ConsoleColor.Gray;
             }
-            else
-            {
+            //else
+            //{
                 Sql.InsertLog(1, text);
-            }
+            //}
         }
     }
 
