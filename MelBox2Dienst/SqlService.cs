@@ -59,18 +59,21 @@ namespace MelBox2Dienst
 
         internal static uint GetServiceId(Sms sms)
         {
+            return GetServiceId(sms.Phone);
+        }
+
+        internal static uint GetServiceId(string phone)
+        {
             //Erst nach Keyword suchen, da Phone nicht eindeutig sein kann.
             const string query1 = "SELECT Id FROM Service WHERE Phone = @Phone LIMIT 1;";
-            const string query2 = "INSERT INTO Service (Name, Phone) VALUES ('Neu_' || @Phone, @Phone); ";
+            const string query2 = "INSERT OR IGNORE INTO Service (Name, Phone) VALUES ('Neu_' || @Phone, @Phone); ";
 
             Dictionary<string, object> args = new Dictionary<string, object>
             {
-                { "@Phone", sms.Phone }
+                { "@Phone", phone }
             };
 
-            _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out uint serviceId);
-
-            if (serviceId == 0) // Nicht gefunden
+            if (uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out uint serviceId)) // Nicht gefunden
             {
                 Sql.NonQuery(query2, args);
                 _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out serviceId);
@@ -78,7 +81,6 @@ namespace MelBox2Dienst
 
             return serviceId;
         }
-
 
         internal static Dictionary<uint, string> ServiceNames()
         {

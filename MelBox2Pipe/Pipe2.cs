@@ -28,6 +28,7 @@ namespace MelBox2Pipe
             //public const string EmailSend = "EmailSend";
             //public const string EmailRecieved = "EmailRecieved";
             public const string CallRelay = "CallRelay";
+            public const string CallRecieved = "CallRecieved";
             public const string Error = "ERROR";
         }
         #endregion
@@ -135,7 +136,7 @@ namespace MelBox2Pipe
                     Sms smsRec = JsonSerializer.Deserialize<Sms>(arg);                    
                     Console.WriteLine("Empfangene SMS ist in DB registriert:\r\n" + smsRec.ToString() );
 
-                    //TODO: Diese Empfangene SMS kann aus dem GSM-Modem gelöscht werden.
+                    //TODO IN PRODUCTION: Diese Empfangene SMS kann aus dem GSM-Modem gelöscht werden.
 
                     //Keine Rückantwort
                     return null; 
@@ -154,7 +155,7 @@ namespace MelBox2Pipe
                     //TODO IN PRODUCTION: GSM-Modem weist 'esiredCallRelayPhone' für die Rufumleitung zu,
                     //fragt dann die aktuelle Rufumleitung für Sprachanrufe ab und gibt das Ergebnis als Antwort zurück zur DB.
 
-                    string confirmedRelayPhone = "+4987654321";
+                    string confirmedRelayPhone = desiredCallRelayPhone;// "+4987654321";//Simulierte aktuelle Rufumleitung
                     //Antwort: Aus dem GSM-Modem ausgelesene, aktive Nummer für Rufumleitung.
                     return Answer(Verb.CallRelay, confirmedRelayPhone);
                 case Verb.Error:

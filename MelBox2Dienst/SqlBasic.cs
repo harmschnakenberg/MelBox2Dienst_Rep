@@ -98,7 +98,7 @@ namespace MelBox2Dienst
                     catch
                     {
 #if DEBUG
-                    Log.Info("SelectDataTable(): Hinweis: Abfrage hat Schema nicht eingehalten."); //Debug-Info
+                    Log.Info("SelectDataTable(): Hinweis: Abfrage hat Schema nicht eingehalten:\r\n" + query); //Debug-Info
 #endif
                         myTable = new DataTable();
 

@@ -529,6 +529,25 @@ namespace MelBox2Dienst
             return sentId;
         }
 
+        internal static uint CreateSent(string incomingCallFromPhone, string relayCallToPhone)
+        {
+            uint serviceId = Sql.GetServiceId(relayCallToPhone);
+            uint messageId = SelectMessageIdByContent($"Sprachanruf von '{incomingCallFromPhone}' weitergeleitet an '{relayCallToPhone}'");
+
+            Dictionary<string, object> args = new Dictionary<string, object>
+                {
+                    { "@Time", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")},
+                    { "@ToId", serviceId},
+                    { "@ContentId", messageId }
+                };
+
+            const string query = @"INSERT INTO Sent (Time, ToId, ContentId) VALUES (@Time, @ToId, @ContentId);
+                                    SELECT MAX(Id) FROM Sent;";
+
+            _ = uint.TryParse(Sql.SelectValue(query, args)?.ToString(), out uint sentId);
+           
+            return sentId;
+        }
 
         #endregion
 

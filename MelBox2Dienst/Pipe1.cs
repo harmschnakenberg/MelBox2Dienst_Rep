@@ -28,6 +28,7 @@ namespace MelBox2Dienst
             //public const string EmailSend = "EmailSend";
             //public const string EmailRecieved = "EmailRecieved";
             public const string CallRelay = "CallRelay";
+            public const string CallRecieved = "CallRecieved";
             public const string Error = "ERROR";
         }
         #endregion
@@ -64,8 +65,11 @@ namespace MelBox2Dienst
                             Log.Info($"Antwort von {pipeName} > {answer}");
 #endif
                             #region Antwort zurück                            
-                            await writer.WriteLineAsync(answer);
-                            await writer.FlushAsync();
+                            if (answer != null)
+                            {
+                                await writer.WriteLineAsync(answer);
+                                await writer.FlushAsync();
+                            }
                             #endregion
                         }
                     }
@@ -143,12 +147,22 @@ namespace MelBox2Dienst
                     return Answer(verb,"nicht implementiert");
 
                 case Verb.CallRelay:
+                    //Antwort auf Anfrage zum Ändern der Rufumleitung
                     string actualCallRelayPhone = arg;
-
-                    //TODO: Prüfe, ob sich die Sprachrufumleitung geändert hat. Falls ja, Eintrag im Log.
-
-
+                    if (actualCallRelayPhone != Sql.CallRelayPhone)
+                    {
+                        Log.Info($"Rufumleitung umgeschaltet von '{Sql.CallRelayPhone}' auf '{actualCallRelayPhone}'");
+                        Sql.CallRelayPhone = actualCallRelayPhone;
+                    }
+                    
                     //keine Antwort erforderlich
+                    return null;
+                case Verb.CallRecieved:
+                    string callingNumber = arg;
+                    //eingegangenen Sprachanruf protokollieren
+                    uint sentId = Sql.CreateSent(callingNumber, Sql.CallRelayPhone);
+
+                    //keine Antwort erforderlich (GSM-Modem leitet selbständig weiter)
                     return null;
                 default:
                     return Answer(verb, "unbekannt");

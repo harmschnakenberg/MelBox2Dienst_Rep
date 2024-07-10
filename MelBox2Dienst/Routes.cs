@@ -30,7 +30,8 @@ namespace MelBox2Dienst
             {
                 dataTable = Sql.SelectRecieved(100);
 
-                html += Html.DatePicker("in", DateTime.Now) +
+                html += "<h4>Empfangene Meldungen</h4>" + 
+                        Html.DatePicker("in", DateTime.Now) +
                         Html.ConvertDataTable(
                         dataTable,
                         new Dictionary<string, string>() {
@@ -100,6 +101,7 @@ namespace MelBox2Dienst
 //            Console.WriteLine(date);
 //#endif
             string html = Html.Sceleton(
+                    "<h4>Weitergeleitete Meldungen</h4>" +
                     Html.DatePicker("out", date) +
                     Html.ConvertDataTable(
                         dataTable
@@ -127,7 +129,7 @@ namespace MelBox2Dienst
 
                 dataTable = Sql.SelectLog(date);
             }            
-//            #endregion
+            #endregion
 //#if DEBUG
 //            Console.WriteLine(date);
 //#endif
@@ -144,15 +146,15 @@ namespace MelBox2Dienst
 
         [RestRoute("Get", "/guard")]
         public static async Task GuradOverview(IHttpContext context)
-        {
-            #region Filter setzen
-            DateTime date = DateTime.Now.Date;
-            DataTable dataTable = new DataTable();
+        {           
             string html = string.Empty;
 
+            #region Filter setzen            
+            DataTable dataTable;// = new DataTable();
             if (!context.Request.QueryString.HasKeys())
             {
-                html += $"<div class='container'>Sprachanrufe gehen zurzeit an <span class='badge bg-secondary'>{Sql.CallRelayPhone}</span></div>";
+                html += "<h4>Rufbereitschaft</h4>" +
+                        $"<div class='container'>Rufannahme geht zurzeit an <span class='badge bg-secondary'>{Sql.CallRelayPhone}</span></div>";
 
                 dataTable = Sql.SelectAllGuards();
                 html += Html.GuardCalender(dataTable);
@@ -162,9 +164,9 @@ namespace MelBox2Dienst
                 dataTable = Sql.SelectGuardById(shiftId);
                 html += Html.GuardFormUpdate(dataTable);
             }
-            else if (context.Request.QueryString.Get("datum").Length > 0 && DateTime.TryParse(context.Request.QueryString.Get("datum"), out date))
+            else if (context.Request.QueryString.Get("datum").Length > 0 && DateTime.TryParse(context.Request.QueryString.Get("datum"), out DateTime date))
             {
-                Console.WriteLine("Neue Bereitchaft erstellen ab " + date);
+                Console.WriteLine("Neue Bereitschaft erstellen ab " + date);
 
                 if (date.CompareTo(DateTime.Now.AddYears(-10)) < 0) date = DateTime.Now.Date; //Älter als 10 Jahre = ungültig
                 if (date.CompareTo(DateTime.Now) < 0) date = DateTime.Now.Date; //Die Vergangenheit kann nicht geändert werden
@@ -174,9 +176,9 @@ namespace MelBox2Dienst
             }
 
             #endregion
-//#if DEBUG
-//            Console.WriteLine(date);
-//#endif
+            //#if DEBUG
+            //            Console.WriteLine(date);
+            //#endif
 
             await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
         }

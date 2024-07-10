@@ -28,17 +28,15 @@ namespace MelBox2Dienst
         protected override void OnStart(string[] args)
         {
             Pipe1.StartPipeServer(Pipe1.PipeName.MelBox2Service, true);
-            //Pipes.StartPipeServer2(Pipes.Name.MelBox2Service);
-            //Pipes.StartPipeServer2(Pipes.Name.SmsRecieved);
-            //Pipes.StartPipeServer2(Pipes.Name.EmailSend);
             Server.Start();
             Sql.CheckDbFile();
+            //CheckCallRelayNumber(); //BÖSE! Macht nach wenigen Sekunden Stack.Overfolow-Fehler!!
 
             #region Timer
-            // Set up a timer that triggers every minute.
+            // Set up a timer that triggers every x minute.
             Timer timer = new Timer
             {
-                Interval = 300000 // 5 Minuten 
+                Interval = 60000 // 300000 // 5 Minuten 
             };
             timer.Elapsed += new ElapsedEventHandler(this.OnTimerAsync);
             timer.Start();
@@ -61,26 +59,35 @@ namespace MelBox2Dienst
             this.OnStop();
         }
 
-        public async void OnTimerAsync(object sender, ElapsedEventArgs args)
+        public void OnTimerAsync(object sender, ElapsedEventArgs args)
         {
             // TODO: Insert monitoring activities here.
-           Log.Info("Monitoring the System " + DateTime.Now);
+            Log.Info("Monitoring the System " + DateTime.Now);
 
-            #region Prüfe Sprachweiterleitung
+            #region Prüfe Sprachweiterleitung: Sprachanrufe werden an den ersten Datensatz der aktuellen Bereitschaft mit gültiger Telefonnummer weitergeleitet
+            CheckCallRelayNumber();
+            #endregion
+        }
+
+        /// <summary>
+        /// Geht die Liste der aktuellen Bereitschaft durch (i.d.R. 1 Person), 
+        /// findet den ersten Eintrag mit einer gültigen Telefonnummer 
+        /// und veranlasst, dass Sprachanrufe an diese Nummer weitergeleitet werden.
+        /// </summary>
+        public static async void CheckCallRelayNumber()
+        {
             List<Service> currentService = Sql.SelectCurrentGuards();
             foreach (Service service in currentService)
             {
                 if (!Pipe1.IsPhoneNumber(service.Phone))
                     continue;
 
-                if (service.Phone != Sql.CallRelayPhone) 
+                if (service.Phone != Sql.CallRelayPhone)
                     Sql.CallRelayPhone = await Pipe1.RelayCall(service.Phone);
-                    
+
                 break;
             }
-            #endregion
         }
-
 
     }
 }

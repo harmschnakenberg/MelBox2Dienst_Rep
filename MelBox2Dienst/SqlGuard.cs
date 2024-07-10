@@ -20,7 +20,7 @@ namespace MelBox2Dienst
         /// <returns>Liste der aktuellen Meldeempfänger (falls mehrfach belegt)</returns>
         internal static List<Service> SelectCurrentGuards()
         {
-            //Gibt die Kontaktdaten der eingeteilten bereitschaft aus - oder wenn nicht vorhanden - des Bereitschaftshandys
+            //Gibt die Kontaktdaten der eingeteilten Bereitschaft aus - oder wenn nicht vorhanden - des Bereitschaftshandys
             const string query = @"SELECT Name, Phone, Email FROM View_CurrentShift;";
 
             DataTable dt = Sql.SelectDataTable(query, null);
@@ -37,7 +37,7 @@ namespace MelBox2Dienst
             {
                 CurrentGuards = serviceList;
                 //Rufumleitung ändern
-                //TODO  DBCommunication.SetCallRedirection(serviceList);
+                //MelBox2Service.CheckCallRelayNumber(); //BÖSE?!
             }
 
             return serviceList;
