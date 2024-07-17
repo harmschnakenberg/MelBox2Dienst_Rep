@@ -217,10 +217,16 @@
       <DependentUpon>ProjectInstaller.cs</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
     <Compile Include="RoutesBlockPolicy.cs" />
     <Compile Include="RoutesMasterData.cs" />
     <Compile Include="Routes.cs" />
     <Compile Include="Server.cs" />
+    <Compile Include="Settings.cs" />
     <Compile Include="SqlBasic.cs" />
     <Compile Include="SqlCustomer.cs" />
     <Compile Include="SqlGuard.cs" />
@@ -232,6 +238,10 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Content Include="KKT_Logo2022.ico" />

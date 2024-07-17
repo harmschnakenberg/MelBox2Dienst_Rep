@@ -1,14 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
 using System.ServiceProcess;
-using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 using System.Timers;
 
 namespace MelBox2Dienst
@@ -34,7 +28,7 @@ namespace MelBox2Dienst
 
             #region Timer
             // Set up a timer that triggers every x minute.
-            Timer timer = new Timer
+            System.Timers.Timer timer = new System.Timers.Timer
             {
                 Interval = 60000 // 300000 // 5 Minuten 
             };
@@ -43,6 +37,9 @@ namespace MelBox2Dienst
             #endregion
 
             Log.Info($"{ServiceName} V{Assembly.GetExecutingAssembly().GetName().Version} gestartet.");
+
+            Thread.Sleep(10000);//Warte, weil sonst eine StackOverflow passierne kann.
+            CheckCallRelayNumber();
         }
 
         protected override void OnStop()
@@ -55,7 +52,7 @@ namespace MelBox2Dienst
         {
             this.OnStart(new string[0]);
             Console.WriteLine($"{this.ServiceName} wurde als Konsolenanwendung gestartet. Beliebige Taste zum beenden..");
-            Console.ReadLine();            
+            Console.ReadLine();
             this.OnStop();
         }
 
@@ -82,9 +79,13 @@ namespace MelBox2Dienst
                 if (!Pipe1.IsPhoneNumber(service.Phone))
                     continue;
 
-                if (service.Phone != Sql.CallRelayPhone)
-                    Sql.CallRelayPhone = await Pipe1.RelayCall(service.Phone);
-
+                if (service.Phone != Sql.CallRelayPhone) //Nur anfragen, wenn sich die gewünschte Telefonnummer geändert hat
+                {
+                    CallRelay relay;
+                    relay = await Pipe1.RelayCall(service.Phone);
+                    Sql.CallRelayPhone = relay.Phone;
+                    Log.Info($"Relay phone: {relay.Phone}: {relay.Status}");
+                }
                 break;
             }
         }

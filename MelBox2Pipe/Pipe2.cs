@@ -17,6 +17,7 @@ namespace MelBox2Pipe
         {
             internal static string MelBox2Service { get; } = "MelBox2Service";
             internal static string Gsm { get; } = "Gsm";
+            internal static string Email { get; } = "Email";
         }
 
         public class Verb
@@ -24,9 +25,9 @@ namespace MelBox2Pipe
             //public const string StartPipe = "StartPipe";
             public const string SmsSend = "SmsSend";
             public const string SmsRecieved = "SmsRecieved";
-            //public const string SmsSendIndex = "SmsSendIndex";
+            public const string ReportRecieved = "ReportRecieved";
             //public const string EmailSend = "EmailSend";
-            //public const string EmailRecieved = "EmailRecieved";
+            public const string EmailRecieved = "EmailRecieved";
             public const string CallRelay = "CallRelay";
             public const string CallRecieved = "CallRecieved";
             public const string Error = "ERROR";

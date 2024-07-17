@@ -17,18 +17,20 @@ namespace MelBox2Dienst
         {
             internal static string MelBox2Service { get; } = "MelBox2Service";
             internal static string Gsm { get; } = "Gsm";
+            internal static string Email { get; } = "Email";
         }
 
         public static class Verb
         {
             //public const string StartPipe = "StartPipe";
             public const string SmsSend = "SmsSend";
-            public const string SmsSendIndex = "SmsSendIndex";
+            public const string ReportRecieved = "ReportRecieved";
             public const string SmsRecieved = "SmsRecieved";
-            //public const string EmailSend = "EmailSend";
-            //public const string EmailRecieved = "EmailRecieved";
+            public const string EmailSend = "EmailSend";
+            public const string EmailRecieved = "EmailRecieved";
             public const string CallRelay = "CallRelay";
             public const string CallRecieved = "CallRecieved";
+            public const string GsmStatus = "GsmStatus";
             public const string Error = "ERROR";
         }
         #endregion
@@ -102,23 +104,32 @@ namespace MelBox2Dienst
         /// <returns></returns>
         private static async Task<string> Send(string pipeName, string verb, string arg)
         {
-            using (var client = new NamedPipeClientStream(pipeName))
+            try
             {
-                await client.ConnectAsync();
-                using (StreamReader reader = new StreamReader(client))
-                using (StreamWriter writer = new StreamWriter(client))
+                using (var client = new NamedPipeClientStream(pipeName))
                 {
-                    await writer.WriteLineAsync($"{verb}|{arg}");
-                    await writer.FlushAsync();
-                    return await reader.ReadLineAsync();
+                    await client.ConnectAsync(10000);//Timeout nach 10 sec.
+                    using (StreamReader reader = new StreamReader(client))
+                    using (StreamWriter writer = new StreamWriter(client))
+                    {
+                        await writer.WriteLineAsync($"{verb}|{arg}");
+                        await writer.FlushAsync();
+                        return await reader.ReadLineAsync();
+                    }
                 }
             }
+            catch (TimeoutException) { } //Couldn't connect to server
+            catch (IOException) { } //Pipe was broken
+             
+            return string.Empty; 
         }
         #endregion
     }
 
     internal partial class Pipe1
     {
+        public static Dictionary<string, string> GsmStatus { get; set; } = new Dictionary<string, string>();
+
         #region Anfrage auswerten
         /// <summary>
         /// Wertet die Anfrage der NamedPipe aus
@@ -144,8 +155,16 @@ namespace MelBox2Dienst
                     else
                         return Answer(Verb.Error, arg);
                 case Verb.SmsSend:
-                    return Answer(verb,"nicht implementiert");
-
+                    return Answer(verb, "nicht implementiert");
+                case Verb.ReportRecieved:
+                    StatusReport report = JsonSerializer.Deserialize<StatusReport>(arg);
+#if DEBUG
+                    Log.Info($"SMS-StatusReport an Referenz {report.Reference}: {report.DeliveryStatusText}");
+#endif
+                    if (Sql.UpdateSentSms(report))
+                        return line; //Erfolg: sende die Anfrage ungverändert zurück
+                    else
+                        return Answer(Verb.Error, arg);
                 case Verb.CallRelay:
                     //Antwort auf Anfrage zum Ändern der Rufumleitung
                     string actualCallRelayPhone = arg;
@@ -154,18 +173,36 @@ namespace MelBox2Dienst
                         Log.Info($"Rufumleitung umgeschaltet von '{Sql.CallRelayPhone}' auf '{actualCallRelayPhone}'");
                         Sql.CallRelayPhone = actualCallRelayPhone;
                     }
-                    
+
                     //keine Antwort erforderlich
                     return null;
                 case Verb.CallRecieved:
                     string callingNumber = arg;
                     //eingegangenen Sprachanruf protokollieren
-                    uint sentId = Sql.CreateSent(callingNumber, Sql.CallRelayPhone);
+                    _ = Sql.CreateSent(callingNumber, Sql.CallRelayPhone);
 
                     //keine Antwort erforderlich (GSM-Modem leitet selbständig weiter)
                     return null;
+                case Verb.EmailRecieved:
+                    Email email = JsonSerializer.Deserialize<Email>(arg);
+
+                    if (Sql.MessageRecieveAndRelay(email))
+                        return line; //Erfolg: sende die Anfrage ungverändert zurück
+                    else
+                        return Answer(Verb.Error, arg);
+                case Verb.GsmStatus:
+
+                    KeyValuePair<string, string> gsmStatus = JsonSerializer.Deserialize<KeyValuePair<string, string>>(arg);
+
+                    if (!GsmStatus.Keys.Contains(gsmStatus.Key))
+                        GsmStatus.Add(gsmStatus.Key, gsmStatus.Value);
+                    else
+                        GsmStatus[gsmStatus.Key] = gsmStatus.Value;
+
+                    //Keine Rückantwort auf der Gegenseite erwartet
+                    return Answer(Verb.GsmStatus, string.Empty);                    
                 default:
-                    return Answer(verb, "unbekannt");
+                    return Answer(verb, "unbekannt " + arg);
 
             }
         }
@@ -186,6 +223,7 @@ namespace MelBox2Dienst
         #endregion
 
         #region Anfragen absenden
+
         /// <summary>
         /// Veranlasst das Senden von ein/mehreren SMS. Protokolliert den erfolgreichen Versand in DB
         /// </summary>
@@ -225,6 +263,15 @@ namespace MelBox2Dienst
 
         }
 
+
+        internal static void SendEmail(Email email)
+        {
+            Log.Info(
+                "NamedPipe SendEmail(): " +
+                Send(Pipe1.PipeName.Email, Verb.EmailSend, JsonSerializer.Serialize(email))
+                );
+        }
+
         /// <summary>
         /// Prüft, ob ein String dem Format '+000000...' entspricht
         /// </summary>
@@ -235,24 +282,30 @@ namespace MelBox2Dienst
             return Regex.Match(number, @"(\+[0-9]+)").Success;
         }
 
+
         /// <summary>
         /// Veranlasst die Rufumleitung von Sprachanrufen an die Nummer 'phone'
         /// </summary>
         /// <param name="phone">Telefonnummer, an die Sprachnachrichten weitergeleitet werden sollen</param>
         /// <returns>Aus dem GSM-Modem ausgelesene, aktuelle Nummer für Rufumleitungen.</returns>
-        internal async static Task<string> RelayCall(string phone)
+        internal async static Task<CallRelay> RelayCall(string phone)
         {
-            if (!IsPhoneNumber(phone))
-                return string.Empty;
+            CallRelay callRelay = new CallRelay(string.Empty, "uninitialized");
 
-            string result= await Send(PipeName.Gsm, Verb.CallRelay, phone);
+            if (!IsPhoneNumber(phone))
+                return callRelay;
+
+            callRelay.Phone = phone;
+            string result = await Send(PipeName.Gsm, Verb.CallRelay, JsonSerializer.Serialize( callRelay ) );
 
             string[] args = result?.Split('|');
             if (args.Length != 2)
-                return string.Empty;
+                return callRelay;
 
-            //aktuell im Modem hinterlegte Sprachanrufumleitung
-            return args[1];
+            //Rückgabe: aktuell im Modem hinterlegte Sprachanrufumleitung
+            return JsonSerializer.Deserialize<CallRelay>(args[1]);
+            
+            
         }
 
         #endregion

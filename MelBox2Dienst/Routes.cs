@@ -222,9 +222,17 @@ namespace MelBox2Dienst
         [RestRoute]
         public static async Task Home(IHttpContext context)
         {
-            string html = Html.Sceleton("<h1>Upps.. den Pfad gibt es nicht..</h1>");
+            string html = "<h1>Upps.. den Pfad gibt es nicht..</h1>";
 
-            await context.Response.SendResponseAsync(html).ConfigureAwait(false);
+            html += "<h4>Status GSM-Modem</h4><ol>";
+            foreach (var key in Pipe1.GsmStatus.Keys)
+            {
+                html += $"<li>{key}={Pipe1.GsmStatus[key]}</li>";
+            }
+
+            html += "</ol>";
+
+            await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
         }
 
     }

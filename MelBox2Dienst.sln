@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MelBox2Dienst", "MelBox2Die
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MelBox2Pipe", "MelBox2Pipe\MelBox2Pipe.csproj", "{FFF940F8-3157-4B08-982B-47A74AC91013}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MelBox2Gsm", "MelBox2Gsm\MelBox2Gsm.csproj", "{9627E29D-65A9-4EAB-8CA9-8B4F8CE68FB3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{FFF940F8-3157-4B08-982B-47A74AC91013}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FFF940F8-3157-4B08-982B-47A74AC91013}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FFF940F8-3157-4B08-982B-47A74AC91013}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9627E29D-65A9-4EAB-8CA9-8B4F8CE68FB3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9627E29D-65A9-4EAB-8CA9-8B4F8CE68FB3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9627E29D-65A9-4EAB-8CA9-8B4F8CE68FB3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9627E29D-65A9-4EAB-8CA9-8B4F8CE68FB3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

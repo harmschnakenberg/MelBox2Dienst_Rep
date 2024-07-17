@@ -1,4 +1,4 @@
-﻿namespace MelBox2Dienst
+﻿namespace MelBox2Gsm
 {
     partial class ProjectInstaller
     {
@@ -29,33 +29,31 @@
         private void InitializeComponent()
         {
             this.serviceProcessInstaller1 = new System.ServiceProcess.ServiceProcessInstaller();
-            this.MelBox2ServiceInstaller1 = new System.ServiceProcess.ServiceInstaller();
+            this.MelBox2GsmInstaller1 = new System.ServiceProcess.ServiceInstaller();
             // 
             // serviceProcessInstaller1
             // 
-            this.serviceProcessInstaller1.Account = System.ServiceProcess.ServiceAccount.LocalService;
             this.serviceProcessInstaller1.Password = null;
             this.serviceProcessInstaller1.Username = null;
             // 
-            // MelBox2ServiceInstaller1
+            // MelBox2GsmInstaller1
             // 
-            this.MelBox2ServiceInstaller1.Description = "MelBox2Dienst verarbeitet Störmeldungen";
-            this.MelBox2ServiceInstaller1.DisplayName = "MelBox2Service";
-            this.MelBox2ServiceInstaller1.ServiceName = "MelBox2Service";
-            this.MelBox2ServiceInstaller1.StartType = System.ServiceProcess.ServiceStartMode.Automatic;
-            this.MelBox2ServiceInstaller1.AfterInstall += new System.Configuration.Install.InstallEventHandler(this.MelBox2ServiceInstaller1_AfterInstall);
+            this.MelBox2GsmInstaller1.Description = "Managed ein GSM-Modem an COM-Port";
+            this.MelBox2GsmInstaller1.DisplayName = "MelBox2GsmService";
+            this.MelBox2GsmInstaller1.ServiceName = "MelBox2GsmService";
+            this.MelBox2GsmInstaller1.StartType = System.ServiceProcess.ServiceStartMode.Automatic;
             // 
             // ProjectInstaller
             // 
             this.Installers.AddRange(new System.Configuration.Install.Installer[] {
             this.serviceProcessInstaller1,
-            this.MelBox2ServiceInstaller1});
+            this.MelBox2GsmInstaller1});
 
         }
 
         #endregion
 
         private System.ServiceProcess.ServiceProcessInstaller serviceProcessInstaller1;
-        private System.ServiceProcess.ServiceInstaller MelBox2ServiceInstaller1;
+        private System.ServiceProcess.ServiceInstaller MelBox2GsmInstaller1;
     }
 }

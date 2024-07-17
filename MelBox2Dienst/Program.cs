@@ -37,7 +37,7 @@ namespace MelBox2Dienst
             }
 #if DEBUG
             Console.WriteLine("ENDE");
-            Console.Read();
+            Console.ReadLine();
 #endif
         }
        

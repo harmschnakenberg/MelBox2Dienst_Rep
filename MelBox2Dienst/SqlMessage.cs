@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace MelBox2Dienst
@@ -92,6 +93,30 @@ namespace MelBox2Dienst
             return messageId;
         }
 
+        internal static uint CreateRecievedMessage(Email email)
+        {
+            #region Absender protokollieren und identifizieren
+            uint customerId = Sql.GetCustomerId(email);
+            uint messageId = Sql.SelectMessageIdByContent(email.Body);
+            #endregion
+
+            #region Sms-Empfang protokollieren
+            Dictionary<string, object> args = new Dictionary<string, object>
+                {
+                    { "@Time", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")},
+                    { "@SenderId", customerId},
+                    { "@ContentId", messageId }
+                };
+
+            const string query = "INSERT INTO Recieved (Time, SenderId, ContentId) VALUES (@Time, @SenderId, @ContentId);";
+            //"SELECT MAX(Id) FROM Recieved;";
+
+            _ = Sql.NonQuery(query, args);
+            //_ = uint.TryParse(Sql.SelectValue(query, args)?.ToString(), out uint recivedId);
+            #endregion
+
+            return messageId;
+        }
 
 
         internal static bool MessageRecieveAndRelay(Sms sms)
@@ -105,8 +130,8 @@ namespace MelBox2Dienst
                 List<Service> permanentGuards = Sql.SelectPermamanentGuards();
                 List<Service> currentGuards = Sql.SelectCurrentGuards();
 
-                if (!isBlocked)
-                    permanentGuards.AddRange(currentGuards);
+                //if (!isBlocked) //wieder raus genommen
+                //    permanentGuards.AddRange(currentGuards); //Wenn Bereitschaft eien E-Mail-Adresse angegeben hat, auch dahin schicken
                 #endregion
 
                 #region Email versenden
@@ -117,8 +142,8 @@ namespace MelBox2Dienst
                 if (isBlocked)
                     body += "Keine Weiterleitung an Bereitschaftshandy da SMS gesperrt.\r\n";
 
-                //Email email = new Email(From, permanentGuards.Select(x => x.Email).ToList(), body);
-                //Pipes.SendEmail(email);
+                Email email = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), body);
+                Pipe1.SendEmail(email);
 
                 #endregion
 
@@ -136,6 +161,68 @@ namespace MelBox2Dienst
                 Log.Error($"Fehler MessageRecieveAndRelay() {ex}");
                 return false; 
             }
+        }
+
+        internal static bool MessageRecieveAndRelay(Email emailIn)
+        {
+            try
+            {
+                uint messageId = Sql.CreateRecievedMessage(emailIn);
+                bool isBlocked = Sql.IsMessageBlocked(messageId);
+
+                #region Finde heraus, wer Bereitschaft hat
+                List<Service> permanentGuards = Sql.SelectPermamanentGuards();
+                List<Service> currentGuards = Sql.SelectCurrentGuards();
+
+                //if (!isBlocked) //wieder raus genommen
+                //    permanentGuards.AddRange(currentGuards); //Wenn Bereitschaft eien E-Mail-Adresse angegeben hat, auch dahin schicken
+                #endregion
+
+                #region Email versenden
+                string body = $"Email Absender >{emailIn.From}<\r\n" +
+                    $"SMS Text >{emailIn.Body}<\r\n\r\n";
+
+                if (isBlocked)
+                    body += "Keine Weiterleitung an Bereitschaftshandy da gesperrt.\r\n";
+
+                Email emailOut = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), body);
+                Pipe1.SendEmail(emailOut);
+
+                #endregion
+
+                #region SMS versenden
+                Sms smsOut = new Sms(-1, DateTime.Now, "", RemoveUmlauts(emailIn.Body).Substring(0, Math.Min(emailIn.Body.Length, 160) ) );
+
+                if (!isBlocked)
+                    //Pipes.SendSms(currentGuards.Select(x => x.Phone).ToList(), sms, messageId);
+                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).ToList(), smsOut, messageId);
+                #endregion
+
+                return messageId > 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Fehler MessageRecieveAndRelay() {ex}");
+                return false;
+            }
+        }
+
+
+        private static string RemoveUmlauts(string orig)
+        {
+            //Umlaute durch ASCII-Zeichen ersetzen
+            var s = orig
+                .Replace("Ä", "Ae")
+                .Replace("Ü", "Ue")
+                .Replace("Ö", "Oe")
+                .Replace("ä", "ae")
+                .Replace("ü", "ue")
+                .Replace("ö", "oe")
+                .Replace("ß", "ss")
+                ;
+
+            //Alle nicht erfassten, Nicht-ASCII-Zeichen entfernen
+            return Regex.Replace(s, @"[^\u0000-\u007F]+", string.Empty);
         }
 
         /// <summary>
@@ -549,12 +636,32 @@ namespace MelBox2Dienst
             return sentId;
         }
 
+        /// <summary>
+        /// Ergänzt bei einer versendeten Nachricht die Empfangsbestätigung in DB.
+        /// Wenn 'Refernece' nicht gefunden wird, gibt es keine Warnung.
+        /// </summary>
+        /// <param name="report">SMS StatusReport mit Refernez zu einer versendeten SMS</param>
+        /// <returns>true = StatusReport wurde registriert</returns>
+        internal static bool UpdateSentSms(StatusReport report)
+        {
+            Dictionary<string, object> args = new Dictionary<string, object>
+                {
+                    { "@Reference", report.Reference },
+                    { "@DeliveryCode", report.DeliveryStatus}                    
+                };
+
+            const string query = @"UPDATE Sent SET DeliveryCode = @DeliveryCode WHERE Id = (SELECT MAX(Id) FROM Sent WHERE Reference = @Reference);";
+
+            return Sql.NonQuery(query, args);
+        }
+
         #endregion
 
 
 
     }
 
+    #region Datencontainer-Klassen
 
     /// <summary>
     /// SMS
@@ -631,6 +738,16 @@ namespace MelBox2Dienst
 
     }
 
+    public class CallRelay
+    {
+        public CallRelay(string phone, string status) {
+            Phone = phone;
+            Status = status;
+        }
+        public string Phone { get; set; }
+        public string Status { get; set; }
+    }
+
 
     public class Email
     {
@@ -647,5 +764,5 @@ namespace MelBox2Dienst
         public string Body {get; set; }
     }
 
-
+    #endregion
 }

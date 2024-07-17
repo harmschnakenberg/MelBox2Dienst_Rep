@@ -87,6 +87,29 @@ namespace MelBox2Dienst
             return customerId;
         }
 
+        internal static uint GetCustomerId(Email email)
+        {
+            //Erst nach Keyword suchen, da Phone nicht eindeutig sein kann.
+            const string query1 = "SELECT Id FROM Customer WHERE Email = @Email; ";
+            const string query2 = "INSERT INTO Customer (Name, Email) VALUES (@Email, @Email); ";
+
+            Dictionary<string, object> args = new Dictionary<string, object>
+            {
+                { "@Email", email.From }
+            };
+
+            _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out uint customerId);
+
+            if (customerId == 0) // Nicht gefunden
+            {
+                Sql.NonQuery(query2, args);
+                _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out customerId);
+            }
+
+            return customerId;
+        }
+
+
         /// <summary>
         /// Aus altem MelBox:
         ///   AbsKey: in AbsKey kann ein Schlüsselwort eingetragen werden, um Absender die
