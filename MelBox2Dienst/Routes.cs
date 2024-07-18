@@ -218,21 +218,29 @@ namespace MelBox2Dienst
         }
 
 
+        [RestRoute("Get", "/gsm")]
+        public static async Task GsmRoute(IHttpContext context)
+        {        
+            string html = "<h4>Status GSM-Modem</h4>" +
+                "<div>Statusmeldungen von GSM-Modem</div>" +
+                "<table class='table' style='width:100%'>" +
+                "<tr><th>Eigenschaft</th><th>Zeitpunkt</th><th>Wert</th></tr>";
+            foreach (var key in Pipe1.GsmStatus.Keys)
+            {
+                html += $"<tr><td>{key}</td><td>{Pipe1.GsmStatus[key].Item1}</td><td>{Pipe1.GsmStatus[key].Item2}</td></tr>";
+            }
+
+            html += "</table>";
+
+            await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
+        }
+
 
         [RestRoute]
         public static async Task Home(IHttpContext context)
         {
-            string html = "<h1>Upps.. den Pfad gibt es nicht..</h1>";
-
-            html += "<h4>Status GSM-Modem</h4><ol>";
-            foreach (var key in Pipe1.GsmStatus.Keys)
-            {
-                html += $"<li>{key}={Pipe1.GsmStatus[key]}</li>";
-            }
-
-            html += "</ol>";
-
-            await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
+            context.Request.QueryString.Set("datum", DateTime.Now.Date.ToString("yyyy-MM-dd"));
+            await RecievedMessages(context);
         }
 
     }

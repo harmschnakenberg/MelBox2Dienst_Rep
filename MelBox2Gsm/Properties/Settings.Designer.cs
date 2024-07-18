@@ -31,5 +31,14 @@ namespace MelBox2Gsm.Properties {
                 return ((string)(this["SimPin"]));
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("20")]
+        public int GsmPokeInterval {
+            get {
+                return ((int)(this["GsmPokeInterval"]));
+            }
+        }
     }
 }

@@ -16,7 +16,8 @@ namespace MelBox2Gsm
 {
     public partial class MelBox2GsmService : ServiceBase
     {
-        public static string SimPin { get; set; } = ConfigurationManager.AppSettings["SimPin"];
+       
+        public static int GsmPokeInterval { get; set; } = 30; // int.Parse(ConfigurationManager.AppSettings["GsmPokeInterval"]);
 
         public MelBox2GsmService()
         {
@@ -32,34 +33,15 @@ namespace MelBox2Gsm
         {
             Thread.Sleep(5000);
             #region GSM-Modem vorbereiten
-
-            _ = Port.Ask("AT");         //Test, ob Verbindung besteht
-            _ = Port.Ask("AT+CMGF=1");  //Textmodus  
-            _ = Port.Ask("AT+CMEE=2");  //Fehlermeldungen im Klartext           
-            _ = Port.Ask("AT+CSMP=49,167,0,0"); //Set SMS text Mode Parameters, 49, indicates the request for delivery report https://stackoverflow.com/questions/41676661/get-delivery-status-after-sending-sms-via-gsm-modem-using-at-commands
-            _ = Port.Ask("AT+CNMI=2,1,2,2,1"); //New SMS message indication S.367ff.
-            _ = Port.Ask("AT+GMM");     //Modem Hersteller Type
-
-#if DEBUG
-            //Log.Info("Setze PIN " + SimPin);
-#endif
-            GetSimPinStatus(SimPin);
-            GetProviderName();
-            GetOwnNumber();
-
-            //SetCallRedirection(CallRedirection);
-
-            GetSignalQuality();
-            GetNetworkRegistration();
-            GetSms();
-
+            SetupGsmModem();
+ 
 
             #endregion
 
             // Set up a timer that triggers every minute.
             System.Timers.Timer timer = new System.Timers.Timer
             {
-                Interval = 30000 // 60 seconds
+                Interval = GsmPokeInterval * 1000
             };
             timer.Elapsed += new ElapsedEventHandler(this.OnTimer);
             timer.Start();
@@ -68,6 +50,9 @@ namespace MelBox2Gsm
 
         protected override void OnStop()
         {
+            //Setze Rufumleitung zurück
+            DeactivateCallRedirection();
+
             Log.Info($"{this.ServiceName} wurde beendet.");
         }
 
@@ -75,31 +60,31 @@ namespace MelBox2Gsm
         {
             this.OnStart(new string[0]);
             Console.WriteLine($"{this.ServiceName} wurde als Konsolenanwendung gestartet. Beliebige Taste zum beenden..");
-            Console.ReadLine();
+            //Console.ReadLine();
 
-            //#region Manuelle AT-Befehle
-            //try
-            //{
-            //    Console.WriteLine(
-            //        "Hinweis: AT-Befehle eingeben und mit Eingabetaste abschicken.\r\n" +
-            //        "exit = beenden\r\n" +
-            //        "sim = SMS-Empfang simulieren\r\n" +
-            //        "trace = Rohdaten GSM-Kommunikation ein/ausblenden");
+            #region Manuelle AT-Befehle
+            try
+            {
+                Console.WriteLine(
+                    "Hinweis: AT-Befehle eingeben und mit Eingabetaste abschicken.\r\n" +
+                    "exit = beenden\r\n" +
+                    "sim = SMS-Empfang simulieren\r\n" +
+                    "trace = Rohdaten GSM-Kommunikation ein/ausblenden");
 
-            //    while (true)
-            //    {
-            //        string request = Console.ReadLine();
+                while (true)
+                {
+                    string request = Console.ReadLine();
 
-            //        if (request.ToLower() == "sim")
-            //            SimulateSmsRecieved();
+                    if (request.ToLower() == "sim")
+                        SimulateSmsRecieved();
 
-            //        else if (request.ToLower() == "exit") break;
-            //        else
-            //            _ = Program.Port.Ask(request);
-            //    }
-            //}
-            //finally { Port.Dispose(); }
-            //#endregion
+                    else if (request.ToLower() == "exit") break;
+                    else
+                        _ = Program.Port.Ask(request);
+                }
+            }
+            finally { Port.Dispose(); }
+            #endregion
             this.OnStop();
         }
 
@@ -109,6 +94,11 @@ namespace MelBox2Gsm
         {
             // TODO: Insert monitoring activities here.
             //_eventLog1.WriteEntry("Monitoring the System", EventLogEntryType.Information, eventId++);
+
+#if DEBUG
+            if (Environment.UserInteractive)
+                Console.WriteLine(DateTime.Now);
+#endif
 
             GetSignalQuality();
             GetSms();

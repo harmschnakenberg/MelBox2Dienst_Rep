@@ -1,29 +1,36 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Security.Policy;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static MelBox2Gsm.Pipe3;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace MelBox2Gsm
 {
     internal static partial class Program
     {
         const string ctrlz = "\u001a";
+        public static string SimPin { get; set; } = ConfigurationManager.AppSettings["SimPin"];
 
         #region GsmModemStatus
         public static string LastError { get; set; }
         public static string Pin { get; set; }
         public static string PinStatus { get; set; }
         public static string ProviderName { get; set; }
+        public static string ModemType { get; set; }
         public static string OwnNumber { get; set; }
         public static string OwnName { get; set; }
         public static string CallRelayPhone { get; set; }
-        public static int NetworkRegistration { get; set; }
+        public static int NetworkRegistration { get; set; } = -1;
         public static int RingSecondsBeforeCallForwarding { get; private set; } = 5;
+        public static string RingToneIdentification { get; set; }
         public static int SignalQuality { get; set; }
 
         
@@ -76,7 +83,6 @@ namespace MelBox2Gsm
         {
             string answer = Port.Ask($"AT+CMGL=\"{filter}\"");
 
-            //Log.Info($"SMS-Abfrage empfangen: \r\n{answer}");
             #region Neue SMSen
 
             //Nachricht:
@@ -123,8 +129,6 @@ namespace MelBox2Gsm
                     Log.Error("Fehler beim Abrufen von SMS aus GSM-Modem." + ex);
                 }
             }
-
-           
             #endregion
 
             GetStatusReports(answer);
@@ -178,7 +182,7 @@ namespace MelBox2Gsm
                     //0-31:     delivered or, more generally, other transaction completed.
                     //32-63:    still trying to deliver the message.
                     //64-127:   not making any more delivery attempts.
-
+#if DEBUG
                     string msg = $"StatusReport erhalten\r\n" +
                         $"\tSpeicherplatz {index}, Status '{status}', \r\n" +
                         $"\tReferenz {reference}: StatusCode [{delviveryStatus}]: " + (delviveryStatus > 63 ? "Senden fehlgeschlagen" : delviveryStatus > 31 ? "senden im Gange" : "erfolgreich versendet") + "\r\n" +
@@ -186,21 +190,14 @@ namespace MelBox2Gsm
                         $"\tSendezeit {DischargeTime} (UTC {DischargeTimeUtc})";
 
                     Log.Info(msg);
-
+#endif
                     Pipe3.ReportRecieved(new StatusReport(index, reference, DischargeTimeUtc, delviveryStatus));
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-#if DEBUG
-                    throw;
-#else
-                    Log.Error("Fehler beim Abrufen von Statusreports aus GSM-Modem.");
-#endif
+                    Log.Error("Fehler beim Abrufen von Statusreports aus GSM-Modem:\r\n" + ex);
                 }                
             }
-
-            //TrackSentSms(newReports);
-
             #endregion
         }
 
@@ -212,24 +209,21 @@ namespace MelBox2Gsm
         /// <param name="message">Inhalt der Nachricht</param>
         /// <returns>Referneznummer der versendeten SMS zur Sendungsverfolgung, -1 bei Fehler</returns>
         public static Sms SendSms(string phone, string message)
-        {
-            
+        {            
+            Log.Warn($"Sende SMS an '{phone}': {message}");
+
             _ = Port.Ask($"AT+CMGS=\"{phone}\"\r");
             Thread.Sleep(1000); //Test
-
             string answer = Port.Ask(message + ctrlz, 10000);
 
             Match m = Regex.Match(answer, @"\+CMGS: (\d+)");
 
-            int reference;
 
-            if (!m.Success)
-                reference = 888;
-            else if (!int.TryParse(m.Groups[1].Value, out reference))
-                reference = 999;
-
-            Log.Error($"SendeSms() Antwort: '{answer}' \r\nReferenz={m.Groups[1].Value}");
-
+            if (!m.Success || !int.TryParse(m.Groups[1].Value, out int reference))
+                reference = -1;
+#if DEBUG
+            Log.Info($"SendeSms() Antwort: '{answer}' \r\nReferenz={m.Groups[1].Value}");
+#endif  
             return new Sms(reference, DateTimeOffset.UtcNow, phone, message);
         }
 
@@ -241,8 +235,186 @@ namespace MelBox2Gsm
 
         #endregion
 
+        #region Sprachanrufe
+
+
+        /// <summary>
+        /// Aktiviert die Rufumleitung auf die Angegeben Telefonnummer. siehe MC75 S.221.
+        /// </summary>
+        /// <param name="phone">Nummer zu der Sprachanrufe umgeleitet werden sollen. Die Nummer wird nicht auf Plausibilität geprüft.</param>
+        public static CallRelay SetCallRedirection(string phone)
+        {
+            CallRelay relay = new CallRelay(phone, "unbekannt");
+
+            if (NetworkRegistration != 1)
+            {
+                relay.Status = "Kein Netz. Sprachanrufe werden nicht weitergeleitet.";
+                Log.Warn(relay.Status);
+                return relay;
+            }
+
+            MatchCollection mc = Regex.Matches(phone, @"\+(\d{10,})"); //Format beginnt mit '+...' und mind. 10 Ziffern lang
+
+            if (mc.Count == 0)
+            {
+                relay.Status = $"Rufumleitung an '{phone}' ist ungültig.";
+                Log.Warn(relay.Status);
+                return relay;
+            }
+
+            //Setze Rufumleitung
+            _ = Port.Ask($"AT+CCFC=0,3,\"{phone}\",145,1,{RingSecondsBeforeCallForwarding}");
+            //AT+CCFC=<reason>,<mode>[,<number>[,<type>[,<class>[,<time>]]]]
+
+            #region Prüfe Rufumleitung
+            string answer = Port.Ask("AT+CCFC=2,2", 6000);
+            //+CCFC: <status> ,  <class> [,  <number> ,  <type> ]
+            MatchCollection mc2 = Regex.Matches(answer, @"\+CCFC: (\d),(\d),""(.+)"",(?:\d+),(\d+)");
+
+            if (int.TryParse(mc2[0].Groups[1].Value, out int status) && status == 1)
+            {
+                relay.Phone = mc2[0].Groups[3].Value.Trim('"');
+                relay.Status = $"Sprachanrufe werden nach {RingSecondsBeforeCallForwarding} Sek. an {relay.Phone} weitergeleitet.";
+                Log.Info(relay.Status);
+                return relay;
+            }
+            else
+            {
+                relay.Status = $"Weiterleitung von Sprachanrufen an {phone} NICHT aktiv.";
+                Log.Warn(relay.Status);
+                return relay;
+            }
+            #endregion
+        }
+
+        /// <summary>
+        /// Deaktiviert die Rufumleitung
+        /// </summary>
+        internal static void DeactivateCallRedirection()
+        {
+            _ = Port.Ask("AT+CCFC=0,0");
+        }
+
+
+        /// <summary>
+        /// Prüft, ob der vom Modem empfangene Text Ereignismeldungen des GSM-Modems enthält
+        /// </summary>
+        /// <param name="recLine">vom GSM-Modem empfangene Zeichenkette</param>
+        public static void CeckUnsolicatedIndicators(string recLine)
+        {
+#if DEBUG
+            Log.Warn(recLine);
+#endif
+            #region Sprachanruf empfangen (Ereignis wird beim Klingeln erzeugt)
+            Match m3 = Regex.Match(recLine, @"\+CLIP: (.+),(?:\d+),,,,(?:\d+)");
+
+            // +CLIP: < number >, < type >, , [, < alpha >][, < CLI validity >]
+            //When CLIP is enabled at the TE(and is permitted by the calling subscriber), this URC is delivered after every
+            //" RING " or " +CRING " URC when a mobile terminated call occurs.
+
+            if (m3.Success)                          
+                Pipe3.CallRecieved(m3.Groups[1].Value.Trim('"'));
+            
+            #endregion
+
+            #region SIM-Schubfach
+            //Match m1 = Regex.Match(recLine, @"^SCKS: (\d)");
+
+            //if (m1.Success)
+            //{
+            //    show = true;
+            //    SimTrayIndicator(m1.Groups[1].Value);
+            //}
+            #endregion
+
+            #region neue SMS oder Statusreport empfangen
+            //Match m2 = Regex.Match(recLine, @"\+C(?:MT|DS)I: ");
+
+            //if (m2.Success)
+            //{
+            //    foreach (SmsIn sms in SmsRead())
+            //        Console.WriteLine($"Empfangene Sms: {sms.Index} - {sms.Phone}:\t{sms.Message}");
+
+            //    show = true;
+            //}
+            #endregion
+
+            #region Netzwerkstatus geändert
+            //Match m4 = Regex.Match(recLine, @"\+CREG: (\d)");
+
+            //if (m4.Success && int.TryParse(m4.Groups[1].Value, out int status))
+            //{
+            //    Registration currentStatus = (Registration)status;
+
+            //    if (currentStatus == Registration.Registered && currentStatus != NetworkRegistration)
+            //        SetupModem();
+
+            //    NetworkRegistration = currentStatus;
+            //    show = true;
+            //}
+            #endregion
+        }
+
+        ///// <summary>
+        ///// Fragt ab, ob die Rufumleitung bei Nicht-Erreichbarkeit eingeschaltet ist.
+        ///// </summary>
+        ///// <returns>true = Sprachanrufe werden umgeleitet.</returns>
+        //private static bool IsCallForewardingActive()
+        //{
+        //    string answer = Port.Ask("AT+CCFC=2,2");
+        //    //+CCFC: <status> ,  <class> [,  <number> ,  <type> ]
+        //    MatchCollection mc = Regex.Matches(answer, @"\+CCFC: (\d),(\d),""(.+)"",(?:\d+),(\d+)");
+
+        //    foreach (Match m in mc)
+        //    {
+        //        if (int.TryParse(m.Groups[1].Value, out int _status) && int.TryParse(m.Groups[2].Value, out int _class) && (_class % 2 == 1)) //Sprachanrufe
+        //        {
+        //            bool isActive = _status == 1;
+        //            CallForwardingNumber = mc[0].Groups[3].Value.Trim('"');
+
+        //            if (isActive != CallForwardingActive) // nur bei Statusänderung
+        //            {
+        //                string txt = $"Die Anrufweiterleitung an >{CallForwardingNumber}< ist {(isActive ? "" : "de")}aktiviert";
+        //                Console.WriteLine(txt);
+        //                Log.Info(txt, 104);
+        //                if (isActive) SetIncomingCallNotification();
+        //            }
+
+        //            CallForwardingActive = isActive;
+
+        //        }
+        //    }
+
+        //    return CallForwardingActive;
+        //}
+
+        #endregion
 
         #region GSM-Modem Status / Setup
+
+        internal static void SetupGsmModem()
+        {
+
+            _ = Port.Ask("AT");         //Test, ob Verbindung besteht
+            _ = Port.Ask("AT+CMGF=1");  //Textmodus  
+            _ = Port.Ask("AT+CMEE=2");  //Fehlermeldungen im Klartext           
+            _ = Port.Ask("AT+CSMP=49,167,0,0"); //Set SMS text Mode Parameters, 49, indicates the request for delivery report https://stackoverflow.com/questions/41676661/get-delivery-status-after-sending-sms-via-gsm-modem-using-at-commands
+            _ = Port.Ask("AT+CNMI=2,1,2,2,1"); //New SMS message indication S.367ff.
+           
+
+            GetModemType();
+#if DEBUG
+            Log.Info("Setze PIN " + SimPin);
+#endif
+            GetSimPinStatus(Program.SimPin);
+            GetProviderName();
+            GetOwnNumber();
+            GetSignalQuality();
+            GetNetworkRegistration();
+            SetIncomingCallNotification();
+            GetSms();
+
+        }
 
         /// <summary>
         /// Prüft, ob die SIM-Karte eine PIN-Eingabe erfordert und gibt ggf. den PIN ein.
@@ -258,6 +430,7 @@ namespace MelBox2Gsm
             if (mc.Count > 0)
             {
                 PinStatus = mc[0].Groups[1].Value;
+                Pipe3.SendGsmStatus(nameof(PinStatus), PinStatus);
 
                 switch (mc[0].Groups[1].Value)
                 {
@@ -293,6 +466,23 @@ namespace MelBox2Gsm
             }
         }
 
+        /// <summary>
+        /// Liest die Type des Modems aus.
+        /// </summary>
+        private static void GetModemType()
+        {
+            string answer1 = Port.Ask("ATI", 7000);
+            Match m1 = Regex.Match(answer1, @"ATI\r\r\n(.+)\r\n(.+)\r\n(.+)\r\n\r\nOK\r\n");
+
+            if (!m1.Success) return;
+
+            string manufacturer = m1.Groups[1].Value;
+            string type = m1.Groups[2].Value;
+            string revision = m1.Groups[3].Value;
+
+            ModemType = $"{manufacturer} {type} {revision}";
+            Pipe3.SendGsmStatus(nameof(ModemType), ModemType);
+        }
 
         /// <summary>
         /// Liest den aktuellen Mobilfunknetzbetreiber aus.
@@ -306,7 +496,8 @@ namespace MelBox2Gsm
             {
                 string providerName = mc[0].Groups[3].Value.Trim('"');
                 Log.Info("Mobilfunkanbieter: " + providerName);
-                ProviderName = providerName;                
+                ProviderName = providerName;
+                Pipe3.SendGsmStatus(nameof(ProviderName), ProviderName);
             }
         }
 
@@ -322,60 +513,40 @@ namespace MelBox2Gsm
             if (mc.Count > 0)
             {
                 OwnName = mc[0].Groups[1].Value;
-                string ownNumber = mc[0].Groups[2].Value;               
-                OwnNumber = ownNumber;
-                Log.Info("Eigene Mobilfunknummer: " + ownNumber);
+                Pipe3.SendGsmStatus(nameof(OwnName), OwnName);
+
+                OwnNumber = mc[0].Groups[2].Value;                                
+                Pipe3.SendGsmStatus(nameof(OwnNumber), OwnNumber);
+
+                Log.Info("Eigene Mobilfunknummer: " + OwnNumber);
             }
         }
 
         /// <summary>
-        /// Aktiviert die Rufumleitung auf die Angegeben Telefonnummer. siehe MC75 S.221.
+        /// Legt fest, ob bei eingehendem Anruf ein Ereignis ausgelöst werden soll. Voraussetzung für Protokollierung der Rufumleitung.
+        /// Siehe S. 231f.
         /// </summary>
-        /// <param name="phone">Nummer zu der Sprachanrufe umgeleitet werden sollen. Die Nummer wird nicht auf Plausibilität geprüft.</param>
-        public static CallRelay SetCallRedirection(string phone)
+        /// <param name="active">true = Zeigt Nummer des Anrufenden an bei jedem '+RING: '-Ereignis von Modem.</param>
+        internal static void SetIncomingCallNotification(bool active = true)
         {
-            CallRelay relay = new CallRelay(phone, "unbekannt");
+            //S. 231 f.
+            _ = Port.Ask($"AT+CLIP={(active ? 1 : 0)}", 5000);
 
-            if (NetworkRegistration != 1)
+            string answer = Port.Ask("AT+CLIP?");
+
+            MatchCollection mc = Regex.Matches(answer, @"\+CLIP: (\d),(\d)");
+
+            if (mc.Count > 0)
             {
-                relay.Status = "Kein Netz. Sprachanrufe werden nicht weitergeleitet";
-                Log.Warn(relay.Status);
-                return relay;
-            }
+                bool IsUnsolicited = mc[0].Groups[1].Value == "1";
+                bool CanIdentify = mc[0].Groups[2].Value == "1";
 
-            MatchCollection mc = Regex.Matches(phone, @"\+(\d{10,})"); //Format beginnt mit '+...' und mind. 10 Ziffern lang
+                RingToneIdentification = $"Rufnummernanzeige bei Sprachanrufen ist{(IsUnsolicited? " ": " nicht ")}aktiv.<br/>" +
+                    $"Rufnummernidentifikation ist {(CanIdentify ? "aktiv": "unterdrückt")}.";
 
-            if (mc.Count == 0)
-            {
-                relay.Status = $"Rufumleitung an '{phone}' ist ungültig.";
-                Log.Warn(relay.Status);
-                return relay;
-            }
-
-            //Setze Rufumleitung
-            _ = Port.Ask($"AT+CCFC=0,3,\"{phone}\",145,1,{RingSecondsBeforeCallForwarding}");
-            //AT+CCFC=<reason>,<mode>[,<number>[,<type>[,<class>[,<time>]]]]
-
-            //Prüfe Rufumleitung
-            string answer = Port.Ask("AT+CCFC=2,2", 6000);
-            //+CCFC: <status> ,  <class> [,  <number> ,  <type> ]
-            MatchCollection mc2 = Regex.Matches(answer, @"\+CCFC: (\d),(\d),""(.+)"",(?:\d+),(\d+)");
-
-            if (int.TryParse(mc2[0].Groups[1].Value, out int status) && status == 1)
-            {
-                relay.Phone = mc2[0].Groups[3].Value.Trim('"');
-                relay.Status = $"Sprachanrufe werden nach {RingSecondsBeforeCallForwarding} Sek. an {relay.Phone} weitergeleitet.";
-                Log.Info(relay.Status);
-                return relay;
-            }
-            else
-            {
-                relay.Status = $"Weiterleitung von Sprachanrufen an {phone} NICHT aktiv.";
-                Log.Warn(relay.Status);
-                return relay;
+                Pipe3.SendGsmStatus(nameof(RingToneIdentification), RingToneIdentification);
             }
         }
-
 
         /// <summary>
         /// Fragt die Mobilnetzempfangsqualität ab. 
@@ -394,7 +565,7 @@ namespace MelBox2Gsm
                 if (SignalQuality != quality) //Wenn sich die Signalqualität geändert hat
                 {
                     SignalQuality = quality;
-                    Pipe3.SendGsmStatus(nameof(SignalQuality),SignalQuality.ToString());
+                    Pipe3.SendGsmStatus(nameof(SignalQuality),$"{SignalQuality}%");
                   
                     if (quality < 25)
                     { Log.Warn($"Mobilfunksignal {quality}%"); }

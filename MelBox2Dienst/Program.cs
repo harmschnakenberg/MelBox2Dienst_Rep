@@ -47,12 +47,12 @@ namespace MelBox2Dienst
     {
         internal static void Info (string text)
         {
-            //if (Program.IsRunningInConsole)
-            //    Console.WriteLine("Log > " + text);
-            //else
-            //{
+            if (Program.IsRunningInConsole)
+                Console.WriteLine("Log > " + text);
+            else
+            {
                 Sql.InsertLog(3, text);
-            //}
+            }
         }
 
         internal static void Error(string text)
@@ -62,14 +62,14 @@ namespace MelBox2Dienst
             {
                 Console.BackgroundColor = ConsoleColor.DarkRed;
                 Console.ForegroundColor = ConsoleColor.White;
-                Console.WriteLine("Log > " + text);
+                Console.WriteLine($"Log {DateTime.Now.ToShortTimeString()} > {text}");
                 Console.BackgroundColor = ConsoleColor.Black;
                 Console.ForegroundColor = ConsoleColor.Gray;
             }
-            //else
-            //{
+            else
+            {
                 Sql.InsertLog(1, text);
-            //}
+            }
         }
     }
 

@@ -80,7 +80,7 @@ namespace MelBox2Dienst
 
             if (customerId == 0) // Nicht gefunden
             {
-                Sql.NonQuery(query2, args);
+                _ = Sql.NonQueryAsync(query2, args);
                 _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out customerId);
             }
 
@@ -102,7 +102,7 @@ namespace MelBox2Dienst
 
             if (customerId == 0) // Nicht gefunden
             {
-                Sql.NonQuery(query2, args);
+                Sql.NonQueryAsync(query2, args);
                 _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out customerId);
             }
 
@@ -162,7 +162,7 @@ namespace MelBox2Dienst
                 { "@MaxInactiveHours", form["MaxInactiveHours"] }
             };
 
-            _ = Sql.NonQuery(
+            _ = Sql.NonQueryAsync(
                 @"INSERT INTO Customer ( 
                 Name, Phone, Email, Keyword, MaxInactiveHours
                 ) VALUES ( 
@@ -192,7 +192,7 @@ namespace MelBox2Dienst
                 { "@MaxInactiveHours", form["MaxInactiveHours"] }
             };
 
-            _ = Sql.NonQuery(
+            _ = Sql.NonQueryAsync(
                 @"Update Customer SET 
                 Name = @Name,
                 Phone = @Phone,
@@ -213,7 +213,7 @@ namespace MelBox2Dienst
                 { "@Id", form["Id"] }
             };
 
-            _ = Sql.NonQuery(
+            _ = Sql.NonQueryAsync(
                 @"DELETE FROM Customer WHERE Id = @Id;", args);
         }
 

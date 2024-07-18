@@ -18,7 +18,7 @@ namespace MelBox2Dienst
                 { "@Content", content }
             };
 
-            _ = NonQuery($"INSERT INTO Log (Prio, Content) VALUES (@Prio, @Content);", args);
+            _ = NonQueryAsync($"INSERT INTO Log (Prio, Content) VALUES (@Prio, @Content);", args);
         }
 
         internal static DataTable SelectLog(DateTime date)

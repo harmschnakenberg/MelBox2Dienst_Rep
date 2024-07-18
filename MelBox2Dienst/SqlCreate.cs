@@ -78,7 +78,7 @@ namespace MelBox2Dienst
                           Prio INTEGER NOT NULL,
                           Content TEXT 
                           ); ";
-                NonQuery(query, null);
+                _ = NonQueryAsync(query, null);
 
                 query = @"CREATE TABLE IF NOT EXISTS Customer ( 
                           Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -88,7 +88,7 @@ namespace MelBox2Dienst
                           KeyWord TEXT, 
                           MaxInactiveHours INTEGER DEFAULT 0 
                           ); ";
-                NonQuery(query, null);
+                _ = NonQueryAsync(query, null);
 
                 query = @"CREATE TABLE IF NOT EXISTS Service (
                         Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
@@ -98,7 +98,7 @@ namespace MelBox2Dienst
                         RecAllMails INTEGER DEFAULT 0,
                         Color TEXT DEFAULT '#CCCCCC'                       
                         ); ";
-                NonQuery(query, null);
+                _ = NonQueryAsync(query, null);
 
                 query = @"CREATE TABLE IF NOT EXISTS BlockPolicy ( 
                          Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
@@ -118,7 +118,7 @@ namespace MelBox2Dienst
                          SunEnd INTEGER DEFAULT 0 , 
                          Comment TEXT 
                          ); ";
-                NonQuery(query, null);
+                _ = NonQueryAsync(query, null);
 
                 query = @"CREATE TABLE IF NOT EXISTS Message ( 
                         Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
@@ -128,7 +128,7 @@ namespace MelBox2Dienst
 
                         CONSTRAINT fk_BlockPolicyId FOREIGN KEY (BlockPolicyId) REFERENCES BlockPolicy (Id) ON DELETE SET DEFAULT
                         ); ";
-                NonQuery(query, null);
+                _ = NonQueryAsync(query, null);
 
                 query = @"CREATE TABLE IF NOT EXISTS Recieved ( 
                        Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
@@ -139,7 +139,7 @@ namespace MelBox2Dienst
                        CONSTRAINT fk_SenderId FOREIGN KEY (SenderId) REFERENCES Customer (Id) ON DELETE RESTRICT, 
                        CONSTRAINT fk_ContentId FOREIGN KEY (ContentId) REFERENCES Message (Id) ON DELETE RESTRICT 
                        ); ";
-                NonQuery(query, null);
+                _ = NonQueryAsync(query, null);
 
                 query = @"CREATE TABLE IF NOT EXISTS Sent ( 
                         Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
@@ -152,7 +152,7 @@ namespace MelBox2Dienst
                         CONSTRAINT fk_ToId FOREIGN KEY (ToId) REFERENCES Service (Id) ON DELETE RESTRICT , 
                         CONSTRAINT fk_ContentId FOREIGN KEY (ContentId) REFERENCES Message (Id) ON DELETE RESTRICT 
                         ); ";
-                NonQuery(query, null);
+                _ = NonQueryAsync(query, null);
 
 
                 query = @"CREATE TABLE IF NOT EXISTS Shift ( 
@@ -164,7 +164,7 @@ namespace MelBox2Dienst
 
                         CONSTRAINT fk_ToId FOREIGN KEY (ToId) REFERENCES Service (Id) ON DELETE RESTRICT
                         ); ";
-                NonQuery(query, null);
+                _ = NonQueryAsync(query, null);
 
                 #endregion
 
@@ -183,7 +183,7 @@ namespace MelBox2Dienst
 	                        )
 	                        SELECT d FROM dates
                         ); ";
-                NonQuery(query, null);
+                NonQueryAsync(query, null);
 
                 query = @"CREATE VIEW View_BlockedNow AS 
                         SELECT Id AS BlockPolicyId,
@@ -217,7 +217,7 @@ namespace MelBox2Dienst
                         GROUP BY d 
                         HAVING Max(Start) 
                         ORDER BY d; ";
-                NonQuery(query, null);
+                NonQueryAsync(query, null);
 
                 query = @"CREATE VIEW View_CurrentShift AS 
                         SELECT Name, Phone, Email
@@ -227,18 +227,18 @@ namespace MelBox2Dienst
                         UNION 
                         SELECT Name, Phone, Email
                         FROM Service WHERE Name = 'Bereitschaftshandy' AND NOT EXISTS (SELECT Id FROM Shift WHERE current_timestamp BETWEEN Start AND End)";
-                NonQuery(query, null);
+                NonQueryAsync(query, null);
 
                 query = @"CREATE VIEW View_Sent AS 
                         SELECT strftime('%Y-%m-%d %H:%M:%S', ls.Time, 'localtime') AS Gesendet, s.Name AS An, Content AS Inhalt, Reference AS Ref, 
                         CASE WHEN DeliveryCode = 255 THEN 'abgesendet' WHEN DeliveryCode > 32 THEN 'abgebrochen' WHEN DeliveryCode > 16 THEN 'abwarten' WHEN DeliveryCode = 1 THEN 'unbestätigt' WHEN DeliveryCode = 0 THEN 'bestätigt' ELSE 'Status '||DeliveryCode END AS Sendestatus 
                         FROM Sent AS ls JOIN Service AS s ON ToId = s.Id JOIN Message AS mc ON mc.id = ls.ContentId; ";
-                NonQuery(query, null);
+                NonQueryAsync(query, null);
 
                 query = @"CREATE VIEW View_Recieved AS 
                         SELECT r.Id As Nr, strftime('%Y-%m-%d %H:%M:%S', r.Time, 'localtime') AS Empfangen, Name AS Von, Content AS Inhalt, BlockPolicyId AS Sperregel 
                         FROM Recieved AS r JOIN Customer AS c ON SenderId = c.Id JOIN Message AS m ON r.ContentId = m.Id;";
-                NonQuery(query, null);
+                NonQueryAsync(query, null);
 
                 query = @"  CREATE VIEW View_Calendar AS
                             SELECT DISTINCT
@@ -254,7 +254,7 @@ namespace MelBox2Dienst
                             GROUP BY KW
                             ORDER BY d; ";
 
-                NonQuery(query, null);
+                NonQueryAsync(query, null);
 
                 query = @"CREATE VIEW View_Calendar_Full AS
                             SELECT 
@@ -276,7 +276,7 @@ namespace MelBox2Dienst
                             LEFT JOIN Shift AS s ON (strftime('%Y%W', Mo) BETWEEN strftime('%Y%W', s.Start) AND strftime('%Y%W', s.End, '-1 day'))
                             LEFT JOIN Service p ON s.ToId = p.Id
                             ORDER BY Mo; ";
-                NonQuery(query, null);
+                NonQueryAsync(query, null);
 
                 //query = @"CREATE TABLE IF NOT EXISTS Call (                        
                 //            Phone TEXT NOT NULL DEFAULT '+491728362586' 
@@ -313,7 +313,7 @@ namespace MelBox2Dienst
                 query += "INSERT INTO Shift (ToId, Start, End) VALUES (0, DATETIME('now','weekday 1', '-3 days'), DATETIME('now','weekday 1','+7 day')); ";
 
                 //query += "INSERT INTO Call (Phone) VALUES ('+491728362586'); ";
-                NonQuery(query, null);
+                NonQueryAsync(query, null);
 
                 #endregion
 

@@ -96,6 +96,18 @@ namespace MelBox2Gsm
         #endregion
 
         #region Senden und Antwort empfangen
+
+        //private static readonly Queue<Tuple<string,string,string>> sendList = new Queue<Tuple<string, string, string>>();
+
+        //private static async Task<KeyValuePair<string, string>> Send(string pipeName, string verb, string arg)
+        //{
+        //    sendList.Enqueue(new Tuple<string, string, string>(pipeName, verb, arg));
+
+        //    SendList();
+        //}
+
+
+
         /// <summary>
         /// Sendet einen Befehl und Inhalt mittels NamedPipe
         /// </summary>
@@ -103,8 +115,11 @@ namespace MelBox2Gsm
         /// <param name="verb">Befehl, der vom NamedPipeServer interpreiert werden muss</param>
         /// <param name="arg">Argument / Übergabeparameter zu dem Befehl im JSON-Format</param>
         /// <returns></returns>
-        private static async Task<string> Send(string pipeName, string verb, string arg)
+        private static async Task<KeyValuePair<string, string>> Send(string pipeName, string verb, string arg)
         {
+            
+
+            //Tuple<string, string, string> query = sendList.Dequeue();
             try
             {
                 using (var client = new NamedPipeClientStream(pipeName))
@@ -115,7 +130,9 @@ namespace MelBox2Gsm
                     {
                         await writer.WriteLineAsync($"{verb}|{arg}");
                         await writer.FlushAsync();
-                        return await reader.ReadLineAsync();
+                        string result = await reader.ReadLineAsync();
+                        string[] args = result.Split('|');       
+                        return new KeyValuePair<string, string>(args[0], args[1]);
                     }
                 }
             }
@@ -124,7 +141,7 @@ namespace MelBox2Gsm
                 Log.Error($"Fehler beim Senden an Pipe: {pipeName}|{verb}" +
                     $"\r\n\t{ex.GetType()}: {ex.Message}" +
                     $"\r\n\t{arg}");
-                return string.Empty; 
+                return new KeyValuePair<string, string>(verb, string.Empty);
             }
         }
         #endregion
@@ -149,27 +166,23 @@ namespace MelBox2Gsm
 
             switch (verb)
             {
-                //                case Verb.SmsRecieved:
-                //                    //Anfrage von GSM-Modem eine EMpfangene SMS zu registrieren
-                //                    Sms smsRec = JsonSerializer.Deserialize<Sms>(arg);
-                //                    if (Sql.MessageRecieveAndRelay(smsRec))
-                //                        return line; //Erfolg: sende die Anfrage ungverändert zurück
-                //                    else
-                //                        return Answer(Verb.Error, arg);
-                //                case Verb.SmsSend:
-                //                    return Answer(verb, "nicht implementiert");
-                //                case Verb.ReportRecieved:
-                //                    StatusReport report = JsonSerializer.Deserialize<StatusReport>(arg);
-                //#if DEBUG
-                //                    Log.Info($"SMS-StatusReport an Referenz {report.Reference}: {report.DeliveryStatusText}");
-                //#endif
-                //                    if (Sql.UpdateSentSms(report))
-                //                        return line; //Erfolg: sende die Anfrage ungverändert zurück
-                //                    else
-                //                        return Answer(Verb.Error, arg);
+                case Verb.SmsRecieved:
+                    //Antwort auf Anfrage von GSM-Modem eine empfangene SMS zu registrieren
+                    Sms smsRec = JsonSerializer.Deserialize<Sms>(arg);
+                    Log.Recieved($"Empfangene Sms ist verarbeitet und kann jetzt gelöscht werden: " +
+                        $"{smsRec.Index}, {smsRec.Phone}, {smsRec.Content}, {smsRec.Time}");
+                    return null;
+                case Verb.SmsSend:
+                    //Anfrage von DB eine SMS zu versenden
+                    Sms smsOut = JsonSerializer.Deserialize<Sms>(arg);
+                    Sms result = SendSms(smsOut.Phone, smsOut.Content);
+                    return Answer(verb, JsonSerializer.Serialize<Sms>(result));
+                case Verb.ReportRecieved:
+                    //Antwort auf Anfrage von GSM-Modem einen empfangenen StatusReport zu registrieren
+                    //Keine Antwort erforderlich
+                    return null;
                 case Verb.CallRelay:
                     //Anfrage zum Ändern der Rufumleitung
-                    
                     CallRelay callRelay = JsonSerializer.Deserialize<CallRelay>(arg);
 
                     if (IsPhoneNumber(callRelay.Phone))
@@ -178,32 +191,23 @@ namespace MelBox2Gsm
 
                         if (callRelay.Phone != CallRelayPhone)
                         {
-                            callRelay.Status = $"Rufumleitung umgeschaltet von '{CallRelayPhone}' auf '{callRelay.Phone}'";
+                            if (CallRelayPhone is null)
+                                callRelay.Status = $"Rufumleitung eingerichtet auf '{callRelay.Phone}'";
+                            else
+                                callRelay.Status = $"Rufumleitung umgeschaltet von '{CallRelayPhone}' auf '{callRelay.Phone}'";
+
                             Log.Info(callRelay.Status);
                             CallRelayPhone = callRelay.Phone;
                         }
+
+                        Pipe3.SendGsmStatus(nameof(CallRelayPhone), callRelay.Status);
                     }
-                   
-                    return Answer(Verb.CallRelay, JsonSerializer.Serialize(callRelay));
-                //                case Verb.CallRecieved:
-                //                    string callingNumber = arg;
-                //                    //eingegangenen Sprachanruf protokollieren
-                //                    _ = Sql.CreateSent(callingNumber, Sql.CallRelayPhone);
 
-                //                    //keine Antwort erforderlich (GSM-Modem leitet selbständig weiter)
-                //                    return null;
-                //                case Verb.EmailRecieved:
-                //                    Email email = JsonSerializer.Deserialize<Email>(arg);
-
-                //                    if (Sql.MessageRecieveAndRelay(smsRec))
-                //                        return line; //Erfolg: sende die Anfrage ungverändert zurück
-                //                    else
-                //                        return Answer(Verb.Error, arg);
-
-
-                //                    _ = Sql.CreateRecievedMessage(email);
-
-                //                    return null;
+                    return Answer(Verb.CallRelay, JsonSerializer.Serialize<CallRelay>(callRelay));
+                case Verb.CallRecieved:
+                    //Antwort auf Anfrage Sprachanruf protokollierten 
+                    //keine Antwort erforderlich
+                    return null;
                 default:
                     return Answer(verb, "unbekannt " + arg);
 
@@ -240,26 +244,47 @@ namespace MelBox2Gsm
         /// <param name="smsIn"></param>
         internal async static void RecievedSms(Sms smsIn)
         {
+            //TEST
+            Log.Info($"Empfange SMS: {smsIn.Index}, {smsIn.Phone}, {smsIn.Content}");
+
             //Sende Empfangene SMS zur DB
             var answer = await Send(PipeName.MelBox2Service, Verb.SmsRecieved, JsonSerializer.Serialize<Sms>(smsIn));
             //Bei Erfolg wird die gleiche Nachricht zurückgesandt
-            Sms back = JsonSerializer.Deserialize<Sms>(answer);
-            //Entferne SMS aus GSM-Speicher
-            DeleteSms(back.Index);
+            Log.Info($"Antwort: '{answer.Value}'");
+
+            Sms back = JsonSerializer.Deserialize<Sms>(answer.Value);            
+#if DEBUG
+            Log.Info($"SMS an Index {back.Index} erfolgreich protokolliert. Kann jetzt gelöscht werden.");
+#endif
+            DeleteSms(back.Index); //SMS aus GSM-Speicher löschen
+
         }
 
-        internal async static void ReportRecieved(StatusReport report)
+        internal async static void ReportRecieved(StatusReport reportIn)
         {            
-            var r = await Pipe3.Send(Pipe3.PipeName.MelBox2Service, Pipe3.Verb.ReportRecieved, JsonSerializer.Serialize(report));
+            var answer = await Pipe3.Send(Pipe3.PipeName.MelBox2Service, Pipe3.Verb.ReportRecieved, JsonSerializer.Serialize(reportIn));
             //Bei erfolg wird die Anfrage unverändetr zurückgeschickt
-            StatusReport answer = JsonSerializer.Deserialize<StatusReport>(r);
+            StatusReport reportAnswer = JsonSerializer.Deserialize<StatusReport>(answer.Value);
 #if DEBUG
-            Log.Info($"Statusrepart an Index {answer.Reference} erfolgreich protokolliert. Kann jetzt gelöscht werden.");
-#else
-            DeleteSms(answer.Reference); //SMS aus GSM-Speicher löschen
-            DeleteSms(answer.Index); //StatusReport aus GSM-Speicher löschen
+            Log.Info($"Statusrepart an Index {reportAnswer.Reference} erfolgreich protokolliert. Kann jetzt gelöscht werden.");
 #endif
+            DeleteSms(reportAnswer.Reference); //SMS aus GSM-Speicher löschen
+            DeleteSms(reportAnswer.Index); //StatusReport aus GSM-Speicher löschen
+
         }
+
+        // case Verb.CallRecieved:
+        //            string callingNumber = arg;
+        ////eingegangenen Sprachanruf protokollieren
+        //_ = Sql.CreateSent(callingNumber, Sql.CallRelayPhone);
+
+        //            //keine Antwort erforderlich (GSM-Modem leitet selbständig weiter)
+
+        internal async static void CallRecieved(string incomingCallphone)
+        {
+            _ = await Send(PipeName.MelBox2Service, Verb.CallRecieved, incomingCallphone);
+        }
+
 
         /// <summary>
         /// 
@@ -267,7 +292,8 @@ namespace MelBox2Gsm
         /// <param name="report"></param>
         internal async static void SendGsmStatus(string property, string status)
         {
-            string query = JsonSerializer.Serialize(new KeyValuePair<string, string>(property, status));
+           // string query = JsonSerializer.Serialize(new KeyValuePair<string, string>(property, DateTime.Now + ":<br/>" + status));
+            string query = JsonSerializer.Serialize(new Tuple<string, DateTime, string>(property, DateTime.Now , status));
             _ = await Pipe3.Send(PipeName.MelBox2Service, Verb.GsmStatus, query);
             //Keine Rückantwort erwartet
         }

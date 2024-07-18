@@ -20,7 +20,7 @@ namespace MelBox2Gsm
             #region COM-Port verifizieren
             string[] ports = System.IO.Ports.SerialPort.GetPortNames();
 
-            if (ports.Length == 0)
+            if (ports?.Length == 0)
             {
                 Program.Log.Error("Es wurden keine COM-Ports erkannt.");
                 base.Close();
@@ -144,7 +144,7 @@ namespace MelBox2Gsm
                 _wait.Set();
 
             //Prüfe auf unerwartete Meldungen vom Modem
-            //Gsm.CeckUnsolicatedIndicators(recLine);
+            CeckUnsolicatedIndicators(recLine);
         }
 
         private static int ErrorCount;
@@ -161,8 +161,8 @@ namespace MelBox2Gsm
                 if (currentError != LastError) //Gleichen Fehler nur einmal melden
                 {
                     LastError = currentError;
-                    Log.Error("Fehler von GSM-Modem:" + currentError);
-                    Pipe3.GsmErrorOccuredAsync(currentError);
+                    Log.Error("Fehler von GSM-Modem:" + LastError);
+                    Pipe3.SendGsmStatus(nameof(LastError), LastError);
                 }
                 else //wenn der Fehler zu oft gemeldet wird, doch nochmal melden
                 {

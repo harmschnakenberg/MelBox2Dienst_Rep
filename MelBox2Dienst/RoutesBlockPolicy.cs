@@ -75,6 +75,7 @@ namespace MelBox2Dienst
         {
             Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
             Sql.UpdateBlockPolicy(formContent);
+            //MelBox2Dienst.Log.Info($"Meldung [{formContent["MessageId"]}]: Sperregel auf [{formContent["PolicyId"]}] geändert."); //Sinnvoll ohne Meldungs-Klartext
 
             context.Request.QueryString.Add("Sperregel", formContent["Id"]);
             await BlockedMessages(context);
@@ -90,6 +91,7 @@ namespace MelBox2Dienst
         {
             Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
             Sql.InsertBlockPolicy(formContent);
+           
             await BlockedMessages(context);
         }
 

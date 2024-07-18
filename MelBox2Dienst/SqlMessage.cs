@@ -86,7 +86,7 @@ namespace MelBox2Dienst
             const string query = "INSERT INTO Recieved (Time, SenderId, ContentId) VALUES (@Time, @SenderId, @ContentId);";
                 //"SELECT MAX(Id) FROM Recieved;";
 
-            Sql.NonQuery(query, args);
+            _ = Sql.NonQueryAsync(query, args);
             //_ = uint.TryParse(Sql.SelectValue(query, args)?.ToString(), out uint recivedId);
             #endregion
 
@@ -111,7 +111,7 @@ namespace MelBox2Dienst
             const string query = "INSERT INTO Recieved (Time, SenderId, ContentId) VALUES (@Time, @SenderId, @ContentId);";
             //"SELECT MAX(Id) FROM Recieved;";
 
-            _ = Sql.NonQuery(query, args);
+            _ = Sql.NonQueryAsync(query, args);
             //_ = uint.TryParse(Sql.SelectValue(query, args)?.ToString(), out uint recivedId);
             #endregion
 
@@ -294,7 +294,7 @@ namespace MelBox2Dienst
                 { "@Comment", WebUtility.UrlDecode(form["Comment"]) },
             };
 
-            _ = Sql.NonQuery(
+            _ = Sql.NonQueryAsync(
                 @"Update BlockPolicy SET 
                 MonStart = @MonStart,
                 MonEnd = @MonEnd,
@@ -339,7 +339,7 @@ namespace MelBox2Dienst
                 { "@Comment", WebUtility.UrlDecode(form["Comment"]) },
             };
 
-            _ = Sql.NonQuery(
+            _ = Sql.NonQueryAsync(
                 @"INSERT INTO BlockPolicy ( 
                 MonStart,
                 MonEnd,
@@ -529,7 +529,7 @@ namespace MelBox2Dienst
                 { "@BlockPolicyId", form["PolicyId"] }
             };
 
-            _ = Sql.NonQuery(
+            _ = Sql.NonQueryAsync(
                 @"Update Message SET 
                 BlockPolicyId = @BlockPolicyId
                 WHERE Id = @MessageId;", args);
@@ -638,7 +638,7 @@ namespace MelBox2Dienst
 
         /// <summary>
         /// Ergänzt bei einer versendeten Nachricht die Empfangsbestätigung in DB.
-        /// Wenn 'Refernece' nicht gefunden wird, gibt es keine Warnung.
+        /// Wenn 'Reference' nicht gefunden wird, gibt es keine Warnung.
         /// </summary>
         /// <param name="report">SMS StatusReport mit Refernez zu einer versendeten SMS</param>
         /// <returns>true = StatusReport wurde registriert</returns>
@@ -652,7 +652,7 @@ namespace MelBox2Dienst
 
             const string query = @"UPDATE Sent SET DeliveryCode = @DeliveryCode WHERE Id = (SELECT MAX(Id) FROM Sent WHERE Reference = @Reference);";
 
-            return Sql.NonQuery(query, args);
+            return Sql.NonQueryAsync(query, args);
         }
 
         #endregion

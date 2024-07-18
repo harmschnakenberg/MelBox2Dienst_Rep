@@ -102,7 +102,7 @@ namespace MelBox2Dienst
         /// <param name="verb">Befehl, der vom NamedPipeServer interpreiert werden muss</param>
         /// <param name="arg">Argument / Übergabeparameter zu dem Befehl im JSON-Format</param>
         /// <returns></returns>
-        private static async Task<string> Send(string pipeName, string verb, string arg)
+        private static async Task<KeyValuePair<string,string>> Send(string pipeName, string verb, string arg)
         {
             try
             {
@@ -114,21 +114,23 @@ namespace MelBox2Dienst
                     {
                         await writer.WriteLineAsync($"{verb}|{arg}");
                         await writer.FlushAsync();
-                        return await reader.ReadLineAsync();
+                        string result = await reader.ReadLineAsync();
+                        string[] args = result.Split('|');
+                        return new KeyValuePair<string, string>(args[0], args[1]);
                     }
                 }
             }
             catch (TimeoutException) { } //Couldn't connect to server
             catch (IOException) { } //Pipe was broken
-             
-            return string.Empty; 
+
+            return new KeyValuePair<string, string>(verb, string.Empty);
         }
         #endregion
     }
 
     internal partial class Pipe1
     {
-        public static Dictionary<string, string> GsmStatus { get; set; } = new Dictionary<string, string>();
+        public static SortedDictionary<string, Tuple<DateTime, string>> GsmStatus { get; set; } = new SortedDictionary<string, Tuple<DateTime, string>>();
 
         #region Anfrage auswerten
         /// <summary>
@@ -138,6 +140,9 @@ namespace MelBox2Dienst
         /// <returns>Antwort, die an die NamedPipe auf die Anfrage weitergegeben wird. Ansonsten 'null'</returns>
         private static string ParseQuery(string line)
         {
+#if DEBUG
+            Log.Info($"Von Pipe: '{line}'");
+#endif
             string[] args = line.Split('|');
             if (args.Length != 2)
                 return null;
@@ -151,7 +156,7 @@ namespace MelBox2Dienst
                     //Anfrage von GSM-Modem eine EMpfangene SMS zu registrieren
                     Sms smsRec = JsonSerializer.Deserialize<Sms>(arg);
                     if (Sql.MessageRecieveAndRelay(smsRec))
-                        return line; //Erfolg: sende die Anfrage ungverändert zurück
+                        return Answer(Verb.SmsRecieved, arg); //Erfolg: sende die Anfrage ungverändert zurück
                     else
                         return Answer(Verb.Error, arg);
                 case Verb.SmsSend:
@@ -162,7 +167,7 @@ namespace MelBox2Dienst
                     Log.Info($"SMS-StatusReport an Referenz {report.Reference}: {report.DeliveryStatusText}");
 #endif
                     if (Sql.UpdateSentSms(report))
-                        return line; //Erfolg: sende die Anfrage ungverändert zurück
+                        return Answer(Verb.ReportRecieved, arg); //Erfolg: sende die Anfrage ungverändert zurück
                     else
                         return Answer(Verb.Error, arg);
                 case Verb.CallRelay:
@@ -191,13 +196,13 @@ namespace MelBox2Dienst
                     else
                         return Answer(Verb.Error, arg);
                 case Verb.GsmStatus:
+                    //string query = JsonSerializer.Serialize(new Tuple<string, DateTime, string>(property, DateTime.Now, status));
+                    Tuple<string, DateTime, string> gsmStatus = JsonSerializer.Deserialize<Tuple<string, DateTime, string>>(arg);
 
-                    KeyValuePair<string, string> gsmStatus = JsonSerializer.Deserialize<KeyValuePair<string, string>>(arg);
-
-                    if (!GsmStatus.Keys.Contains(gsmStatus.Key))
-                        GsmStatus.Add(gsmStatus.Key, gsmStatus.Value);
+                    if (!GsmStatus.Keys.Contains(gsmStatus.Item1))
+                        GsmStatus.Add(gsmStatus.Item1, new Tuple<DateTime, string>(gsmStatus.Item2, gsmStatus.Item3));
                     else
-                        GsmStatus[gsmStatus.Key] = gsmStatus.Value;
+                        GsmStatus[gsmStatus.Item1] = new Tuple<DateTime, string>(gsmStatus.Item2, gsmStatus.Item3);
 
                     //Keine Rückantwort auf der Gegenseite erwartet
                     return Answer(Verb.GsmStatus, string.Empty);                    
@@ -239,19 +244,19 @@ namespace MelBox2Dienst
                     sms.Index = -1; // Setze index auf einen ungültigen Wert. In GSM-Modem wird Wert neu gesetzt.
                     sms.Phone = phone; //Setze den neuen Empfänger (Bereitschaft)
 
-                    string result = await Send(PipeName.Gsm, Verb.SmsSend, JsonSerializer.Serialize<Sms>(sms));
+                    var pipeAnswer = await Send(PipeName.Gsm, Verb.SmsSend, JsonSerializer.Serialize<Sms>(sms));
 
                     #region SMS-Id der gesendeten SMS in DB eintragen.
                     //Erwartete Antwort : 'SmsSend|[JSON-Object Sms]' mit sms.Index = aktueller Index in GSM-Modem.
 
-                    string[] args = result?.Split('|');
-                    if (args.Length != 2)
-                    {
-                        Log.Error($"Sms-Versand an '{phone}' konnte nicht bestätigt werden; Antwort von DB ungültig: '{result}'");
-                        break;
-                    }
+                   
+                    //if (smsAnswer.Value.Length != 2)
+                    //{
+                    //    Log.Error($"Sms-Versand an '{phone}' konnte nicht bestätigt werden; Antwort von DB ungültig: '{result}'");
+                    //    break;
+                    //}
 
-                    Sms smsAnswer = JsonSerializer.Deserialize<Sms>(args[1]);
+                    Sms smsAnswer = JsonSerializer.Deserialize<Sms>(pipeAnswer.Value);
 
                     if (smsAnswer.Index > 0) //-> Die SMS wurde versand und im GSM-Modem auf einem Index gespeichert.
                         Sql.CreateSent(messageId, smsAnswer);
@@ -296,14 +301,14 @@ namespace MelBox2Dienst
                 return callRelay;
 
             callRelay.Phone = phone;
-            string result = await Send(PipeName.Gsm, Verb.CallRelay, JsonSerializer.Serialize( callRelay ) );
+            var result = await Send(PipeName.Gsm, Verb.CallRelay, JsonSerializer.Serialize( callRelay ) );
 
-            string[] args = result?.Split('|');
-            if (args.Length != 2)
-                return callRelay;
+            //string[] args = result?.Split('|');
+            //if (args.Length != 2)
+            //    return callRelay;
 
             //Rückgabe: aktuell im Modem hinterlegte Sprachanrufumleitung
-            return JsonSerializer.Deserialize<CallRelay>(args[1]);
+            return JsonSerializer.Deserialize<CallRelay>(result.Value);
             
             
         }

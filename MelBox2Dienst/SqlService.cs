@@ -75,7 +75,7 @@ namespace MelBox2Dienst
 
             if (uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out uint serviceId)) // Nicht gefunden
             {
-                Sql.NonQuery(query2, args);
+                _ = Sql.NonQueryAsync(query2, args);
                 _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out serviceId);
             }
 
@@ -145,7 +145,7 @@ namespace MelBox2Dienst
                 { "@Color", WebUtility.UrlDecode(form["Color"]) }
             };
 
-            _ = Sql.NonQuery(
+            _ = Sql.NonQueryAsync(
                 @"INSERT INTO Service ( 
                 Name, Phone, Email, Color
                 ) VALUES ( 
@@ -174,7 +174,7 @@ namespace MelBox2Dienst
                 { "@Color", WebUtility.UrlDecode(form["Color"]) }
             };
 
-            _ = Sql.NonQuery(
+            _ = Sql.NonQueryAsync(
                 @"Update Service SET 
                 Name = @Name,
                 Phone = @Phone,
@@ -195,7 +195,7 @@ namespace MelBox2Dienst
             };
 
             // Keine Empfänger löschen, wenn sie noch in einer kommenden Bereitschaft eingeteilt sind.
-            _ = Sql.NonQuery(
+            _ = Sql.NonQueryAsync(
                 @"DELETE FROM Service WHERE Id = @Id AND @Id NOT IN (SELECT ToId FROM Shift WHERE END > DATE('now') );", args);
 
         }

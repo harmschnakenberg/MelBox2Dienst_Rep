@@ -145,14 +145,14 @@ namespace MelBox2Dienst
                     { "@End", endDate.Add(endTime).ToUniversalTime()  }
                 };
 
-                if (!Sql.NonQuery(
+                if (!Sql.NonQueryAsync(
                     @"Update Shift SET 
                     Time = DATETIME('now'),
                     ToId = @ToId,
                     Start = @Start,
                     End = @End 
                     WHERE Id = @Id;", args))
-                    _ = Sql.NonQuery(
+                    _ = Sql.NonQueryAsync(
                     @"INSERT INTO Shift ( 
                     ToId, 
                     Start,
@@ -214,7 +214,7 @@ namespace MelBox2Dienst
                     { "@End", endDate.Add(endTime).ToUniversalTime()  }
                 };
 
-                _ = Sql.NonQuery(
+                _ = Sql.NonQueryAsync(
                     @"INSERT INTO Shift ( 
                     ToId, 
                     Start,
@@ -249,7 +249,7 @@ namespace MelBox2Dienst
                     { "@Id", form["Id"] }
                 };
 
-            Sql.NonQuery(
+            _ = Sql.NonQueryAsync(
                 @"DELETE FROM Shift  
                 WHERE Id = @Id;", args);
                   

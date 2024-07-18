@@ -47,7 +47,7 @@ namespace MelBox2Dienst
                                     "<nav class='navbar navbar-expand-sm'>\r\n" +
                                     "  <div class='container-fluid'>\r\n" +
                                     Logo +
-                                    "    <a class='navbar-brand' href='http://192.168.165.192:5555'>Kreutztr&auml;ger</a>\r\n" +
+                                    "    <a class='navbar-brand' href='http://192.168.165.192:5555' target='_blank'>Kreutztr&auml;ger</a>\r\n" +
                                     "    <button class='navbar-toggler' type='button' data-bs-toggle='collapse' data-bs-target='#mynavbar'>\r\n" +
                                     "      <span class='navbar-toggler-icon'></span>\r\n" +
                                     "    </button>\r\n" +
@@ -89,6 +89,14 @@ namespace MelBox2Dienst
                                     " Kunden" +
                                     "          </a>\r\n" +
                                     "        </li>\r\n" +
+
+                                    "        <li class='nav-item'>\r\n" +
+                                    "          <a class='nav-link' href='/gsm'>" +
+                                    "           <i class='fas fa-broadcast-tower'></i>\r\n" +
+                                    " GSM" +
+                                    "          </a>\r\n" +
+                                    "        </li>\r\n" +
+
                                     "        <li class='nav-item'>\r\n" +
                                     "          <a class='nav-link' href='/log'>" +
                                     "           <i class='fas fa-book'></i>\r\n" +
@@ -99,6 +107,16 @@ namespace MelBox2Dienst
                                     "          " +
                                     "        </li>\r\n" +
 
+                                    "        <li class='nav-item'>\r\n" +
+                                    "          <a class='nav-link' href='http://192.168.165.192:5555' target='_blank'>" +
+                                    "           <i class='fas fa-globe'></i>\r\n" +
+                                    " Fernwartung" +
+                                    "          </a>\r\n" +
+                                    "        </li>\r\n" +
+                                    "        <li>\r\n" +
+                                    "          " +
+                                    "        </li>\r\n" +
+            
                                     "      </ul>\r\n" +
                                     "      <form class='d-flex'>\r\n" +
                                     "        <input class='form-control me-3' type='text' placeholder='Suche..'>\r\n" +

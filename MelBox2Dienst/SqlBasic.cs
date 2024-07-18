@@ -4,30 +4,43 @@ using System.Data;
 using System.Data.SQLite;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MelBox2Dienst
 {
     internal static partial class Sql
     {
+        // private static Queue<KeyValuePair<string, Dictionary<string, object>>> queryList = new Queue<KeyValuePair<string, Dictionary<string, object>>>();
+
+        // A queue that is protected by Monitor.
+        private static bool lockQuery = false;
+
         /// <summary>
         /// Führt einen SQL-Befehl gegen die Datenbank aus.
         /// </summary>
         /// <param name="query">SQL-Abfrage</param>
         /// <param name="args">Parameter für SQL-Abfrage</param>
         /// <returns>true = mindestens eine Zeile in der Datenbank wurde eingefügt, geändert oder gelöscht.</returns>
-        internal static bool NonQuery(string query, Dictionary<string, object> args)
+        internal static bool NonQueryAsync(string query, Dictionary<string, object> args)
         {
 
             //if (!CheckDbFile()) return false;
+        
+
+            while(lockQuery)
+            {
+                Thread.Sleep(100);
+            }
+
+            lockQuery = true;
 
             try
             {
                 using (var connection = new SQLiteConnection("Data Source=" + DbPath))
-                {
+                {                    
                     //SQLitePCL.Batteries.Init();
-                    connection.Open();
-
+                    connection.Open();                   
                     var command = connection.CreateCommand();
                     command.CommandText = query;
                     if (args != null && args.Count > 0)
@@ -52,6 +65,11 @@ namespace MelBox2Dienst
 
                 Log.Error("SqlNonQuery(): " + query + argsShow + "\r\n" + ex.GetType() + "\r\n" + ex.Message + "\r\n" + ex.InnerException + "\r\n");
                 return false;
+            }
+            finally
+            {
+                // Ensure that the lock is released.
+                lockQuery = false;
             }
         }
 
