@@ -119,19 +119,44 @@ namespace MelBox2Dienst
         }
 
 
+        internal static bool IsBuisinesTimeNow()
+        {
+            DateTime now = DateTime.Now;
+
+            switch (now.DayOfWeek)
+            {
+                case DayOfWeek.Saturday:
+                case DayOfWeek.Sunday:
+                    return false; //Wochenende
+                case DayOfWeek.Friday:
+                    return !(now.Hour < 7 || now.Hour >= 15); //Freitag außerhalb der Geschäftszeiten
+                default:
+                    if (!(now.Hour < 7 || now.Hour >= 17)) //Mo-Do außerhalb der Geschäftszeiten
+                        return false;
+                    break;
+            }
+
+            bool holyday = HttpHelper.IsHolyday(now);
+            if (holyday)
+                return false; //Feiertag
+
+            return true;
+        }
+
         internal static bool MessageRecieveAndRelay(Sms sms)
         {
             try
             {
+                #region Soll diese SMS weitergeleitet werden?
                 uint messageId = Sql.CreateRecievedMessage(sms);
+                bool isBuisinessTime = IsBuisinesTimeNow();
                 bool isBlocked = Sql.IsMessageBlocked(messageId);
+                bool isAlifeMessage = IsAlifeMessage(sms.Content);
+                #endregion
 
                 #region Finde heraus, wer Bereitschaft hat
                 List<Service> permanentGuards = Sql.SelectPermamanentGuards();
                 List<Service> currentGuards = Sql.SelectCurrentGuards();
-
-                //if (!isBlocked) //wieder raus genommen
-                //    permanentGuards.AddRange(currentGuards); //Wenn Bereitschaft eien E-Mail-Adresse angegeben hat, auch dahin schicken
                 #endregion
 
                 #region Email versenden
@@ -141,25 +166,27 @@ namespace MelBox2Dienst
 
                 if (isBlocked)
                     body += "Keine Weiterleitung an Bereitschaftshandy da SMS gesperrt.\r\n";
+                else if(isAlifeMessage)
+                    body += "Keine Weiterleitung der Routinemeldung an Bereitschaftshandy.\r\n";
+                else if (isBuisinessTime)
+                    body += "Keine Weiterleitung an Bereitschaftshandy während der Geschäftszeit.\r\n";
 
                 Email email = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), body);
                 Pipe1.SendEmail(email);
 
                 #endregion
 
-                #region SMS versenden
-                //TODO
-                if (!isBlocked)
-                    //Pipes.SendSms(currentGuards.Select(x => x.Phone).ToList(), sms, messageId);
+                #region SMS versenden                
+                if (!(isBlocked || isBuisinessTime || isAlifeMessage))                    
                     Pipe1.SendSms(currentGuards.Select(x => x.Phone).ToList(), sms, messageId);
                 #endregion
 
                 return messageId > 0;
             }
-            catch (Exception ex) 
+            catch (Exception ex)
             {
                 Log.Error($"Fehler MessageRecieveAndRelay() {ex}");
-                return false; 
+                return false;
             }
         }
 
@@ -207,6 +234,13 @@ namespace MelBox2Dienst
             }
         }
 
+        internal static bool IsAlifeMessage(string message)
+        {
+            if(message.ToLower().Contains("MelSysOK") || message.ToLower().Contains("SgnAlarmOK"))
+                return true;
+
+            return false;
+        }
 
         private static string RemoveUmlauts(string orig)
         {

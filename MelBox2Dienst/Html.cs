@@ -1,14 +1,8 @@
 ﻿using System;
-using System.CodeDom;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
-using System.Globalization;
 using System.Linq;
-using System.Reflection.Emit;
 using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace MelBox2Dienst
 {
@@ -16,116 +10,182 @@ namespace MelBox2Dienst
     {
         #region Statische Textbausteine
 
+       
+
         public static string Sceleton(string content)
         {
-            return
-            "<!DOCTYPE html>\r\n" +
-            "<html lang='de' data-bs-theme='dark'>\r\n" +
-            "  <head>\r\n" +
-            "    <title>MelBox2</title>\r\n" +
-            "    <meta charset=\"utf-8\">\r\n" +
-            "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\r\n" +
-            "    <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css\" rel=\"stylesheet\">\r\n" +
-            "    <script src=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js\"></script>" +
-            "    <script src='https://kit.fontawesome.com/980c3ae727.js' crossorigin='anonymous'></script>\r\n" +
-            "  </head>\r\n" +
-            "<body>\r\n" +
-            "\r\n" +
-            NavBar +
-            "<div class=\"container\">\r\n" +
-            //"  <h1>My First Bootstrap Page</h1>\r\n" +
-            //"  <p>This part is inside a .container class.</p>\r\n" +
-            //"  <p>The .container class provides a responsive fixed width container.</p>\r\n" +
-            content +
-            "</div>\r\n" +
-            "\r\n" +
-            "</body>\r\n" +
-            "</html>";
+            StringBuilder sb = new StringBuilder();
+            #region Head
+            sb.AppendLine("<!DOCTYPE html>");
+            sb.AppendLine("<html lang='de' data-bs-theme='dark'>");
+            sb.AppendLine("  <head>");
+            sb.AppendLine("    <title>MelBox2</title>");
+            sb.AppendLine("    <meta charset='utf-8'>");
+            sb.AppendLine("    <meta name='viewport' content='width=device-width, initial-scale=1'>");
+            sb.AppendLine("    <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>");
+            sb.AppendLine("    <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'></script>");
+            sb.AppendLine("    <script src='https://kit.fontawesome.com/980c3ae727.js' crossorigin='anonymous'></script>");
+            sb.AppendLine("    <script src='https://www.w3schools.com/lib/w3.js'></script> ");
+            sb.AppendLine("  </head>");
+            sb.AppendLine("<body>");
+            #endregion
+            #region Navigation-Bar
+
+            sb.AppendLine("<nav class='navbar navbar-expand-lg'>");
+            sb.AppendLine(" <div class='container-fluid'>");
+            sb.AppendLine(Logo);
+            sb.AppendLine("<a class='navbar-brand' href='http://192.168.165.192:5555' target='_blank'>Kreutztr&auml;ger</a>");
+            sb.AppendLine("<button class='navbar-toggler' type='button' data-bs-toggle='collapse' data-bs-target='#mynavbar'>");
+            sb.AppendLine(" <span class='navbar-toggler-icon'></span>");
+            sb.AppendLine("</button>");
+            sb.AppendLine("<div class='collapse navbar-collapse' id='mynavbar'>");
+            sb.AppendLine("<ul class='navbar-nav me-auto'>");
+
+            sb.Append(NavIcon("Posteingang", "fas fa-arrow-circle-down", "/in"));
+            sb.Append(NavIcon("Postausgang", "fas fa-arrow-circle-up", "/out"));
+            sb.Append(NavIcon("Gesperrt", "fas fa-bell-slash", "/blocked"));
+            sb.Append(NavIcon("Bereitschaft", "fas fa-business-time", "/guard"));
+            sb.Append(NavIcon("Service", "fas fa-user-clock", "/service"));
+            sb.Append(NavIcon("Kunden", "fas fa-user-cog", "/customer"));
+            sb.Append(NavIcon("GSM", "fas fa-broadcast-tower", "/gsm"));
+            sb.Append(NavIcon("Log", "fas fa-book", "/log"));
+            sb.Append(NavIcon("Fernwartung", "fas fa-globe", "http://192.168.165.192:5555"));
+
+            sb.AppendLine("</ul>");
+            sb.Append(GsmQualityIndicator());
+            //sb.AppendLine("<form class='d-flex'>");
+            
+            sb.AppendLine(" <input class='  me-3' type='text' placeholder='Suche..' oninput=\"w3.filterHTML('#table01', '.item', this.value)\">");
+            //sb.AppendLine(" <button class='btn btn-primary' type='button'>Suche</button>");
+            // "  <input class=\"form-check-input\" type=\"checkbox\" id=\"mySwitch\" name=\"darkmode\" value=\"yes\" checked>\r\n  <label class=\"form-check-label\" for=\"mySwitch\">Dark Mode</label>" +
+            //sb.AppendLine("</form>");
+            sb.AppendLine("</div>");
+            sb.AppendLine("</div>");
+            sb.AppendLine("</nav>");
+            #endregion
+
+            sb.AppendLine("<div class='container'>");
+
+            sb.Append(content);
+            
+            sb.AppendLine("</div>");
+            sb.AppendLine("</body>");
+            sb.AppendLine("</html>");
+
+            return sb.ToString();
+            //"<!DOCTYPE html>\r\n" +
+            //"<html lang='de' data-bs-theme='dark'>\r\n" +
+            //"  <head>\r\n" +
+            //"    <title>MelBox2</title>\r\n" +
+            //"    <meta charset=\"utf-8\">\r\n" +
+            //"    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\r\n" +
+            //"    <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css\" rel=\"stylesheet\">\r\n" +
+            //"    <script src=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js\"></script>" +
+            //"    <script src='https://kit.fontawesome.com/980c3ae727.js' crossorigin='anonymous'></script>\r\n" +
+            //"  </head>\r\n" +
+            //"<body>\r\n" +
+            //NavBar +
+            //"<div class=\"container\">\r\n" +
+            //content +
+            //GsmQualityIndicator() +
+            //"</div>\r\n" +
+            //"\r\n" +
+            //"</body>\r\n" +
+            //"</html>";
         }
 
-        public const string NavBar = "\r\n" +
-                                    "<nav class='navbar navbar-expand-sm'>\r\n" +
-                                    "  <div class='container-fluid'>\r\n" +
-                                    Logo +
-                                    "    <a class='navbar-brand' href='http://192.168.165.192:5555' target='_blank'>Kreutztr&auml;ger</a>\r\n" +
-                                    "    <button class='navbar-toggler' type='button' data-bs-toggle='collapse' data-bs-target='#mynavbar'>\r\n" +
-                                    "      <span class='navbar-toggler-icon'></span>\r\n" +
-                                    "    </button>\r\n" +
-                                    "    <div class='collapse navbar-collapse' id='mynavbar'>\r\n" +
-                                    "      <ul class='navbar-nav me-auto'>\r\n" +
-                                    "        <li class='nav-item'>\r\n" +
-                                    "          <a class='nav-link' href='/in'>" +
-                                    "           <i class='fas fa-arrow-circle-down'></i>\r\n" +
-                                    " Posteingang" +
-                                    "          </a>\r\n" +
-                                    "        </li>\r\n" +
-                                    "        <li class='nav-item'>\r\n" +
-                                    "          <a class='nav-link' href='/out'>" +
-                                    "            <i class='fas fa-arrow-circle-up'></i>\r\n" +
-                                    " Postausgang" +
-                                    "          </a>\r\n" +
-                                    "        </li>\r\n" +
-                                    "        <li class='nav-item'>\r\n" +
-                                    "          <a class='nav-link' href='/blocked'>" +
-                                    "           <i class='fas fa-bell-slash'></i>\r\n" +
-                                    " Gesperrt" +
-                                    "          </a>\r\n" +
-                                    "        </li>\r\n" +
-                                    "        <li class='nav-item'>\r\n" +
-                                    "          <a class='nav-link' href='/guard'>" +
-                                    "           <i class='fas fa-business-time'></i>\r\n" +
-                                    " Bereitschaft" +
-                                    "          </a>\r\n" +
-                                    "        </li>\r\n" +
-                                    "        <li class='nav-item'>\r\n" +
-                                    "          <a class='nav-link' href='/service'>" +
-                                    "            <i class='fas fa-user-clock'></i>\r\n" +
-                                    " Service" +
-                                    "          </a>\r\n" +
-                                    "        </li>\r\n" +
-                                    "        <li class='nav-item'>\r\n" +
-                                    "          <a class='nav-link' href='/customer'>" +
-                                    "           <i class='fas fa-user-cog'></i>\r\n" +
-                                    " Kunden" +
-                                    "          </a>\r\n" +
-                                    "        </li>\r\n" +
+        private static string NavIcon(string name, string icon, string link)
+        {
+            return "<li class='nav-item'>\r\n" +
+                    $" <a class='nav-link' href='{link}'>\r\n" +
+                    $"  <i class='{icon}'></i>\r\n" +
+                       name +
+                    " </a>\r\n" +
+                    "</li>\r\n";
+        }
 
-                                    "        <li class='nav-item'>\r\n" +
-                                    "          <a class='nav-link' href='/gsm'>" +
-                                    "           <i class='fas fa-broadcast-tower'></i>\r\n" +
-                                    " GSM" +
-                                    "          </a>\r\n" +
-                                    "        </li>\r\n" +
+       //const string NavBar = "<nav class='navbar navbar-expand-sm'>\r\n" +
+       //                             "  <div class='container-fluid'>\r\n" +
+       //                             Logo +             
+       //                             "    <a class='navbar-brand' href='http://192.168.165.192:5555' target='_blank'>Kreutztr&auml;ger</a>\r\n" +
+       //                             "    <button class='navbar-toggler' type='button' data-bs-toggle='collapse' data-bs-target='#mynavbar'>\r\n" +
+       //                             "      <span class='navbar-toggler-icon'></span>\r\n" +
+       //                             "    </button>\r\n" +
+       //                             "    <div class='collapse navbar-collapse' id='mynavbar'>\r\n" +
+       //                             "      <ul class='navbar-nav me-auto'>\r\n" +
+       //                             "        <li class='nav-item'>\r\n" +
+       //                             "          <a class='nav-link' href='/in'>" +
+       //                             "           <i class='fas fa-arrow-circle-down'></i>\r\n" +
+       //                             " Posteingang" +
+       //                             "          </a>\r\n" +
+       //                             "        </li>\r\n" +
+       //                             "        <li class='nav-item'>\r\n" +
+       //                             "          <a class='nav-link' href='/out'>" +
+       //                             "            <i class='fas fa-arrow-circle-up'></i>\r\n" +
+       //                             " Postausgang" +
+       //                             "          </a>\r\n" +
+       //                             "        </li>\r\n" +
+       //                             "        <li class='nav-item'>\r\n" +
+       //                             "          <a class='nav-link' href='/blocked'>" +
+       //                             "           <i class='fas fa-bell-slash'></i>\r\n" +
+       //                             " Gesperrt" +
+       //                             "          </a>\r\n" +
+       //                             "        </li>\r\n" +
+       //                             "        <li class='nav-item'>\r\n" +
+       //                             "          <a class='nav-link' href='/guard'>" +
+       //                             "           <i class='fas fa-business-time'></i>\r\n" +
+       //                             " Bereitschaft" +
+       //                             "          </a>\r\n" +
+       //                             "        </li>\r\n" +
+       //                             "        <li class='nav-item'>\r\n" +
+       //                             "          <a class='nav-link' href='/service'>" +
+       //                             "            <i class='fas fa-user-clock'></i>\r\n" +
+       //                             " Service" +
+       //                             "          </a>\r\n" +
+       //                             "        </li>\r\n" +
+       //                             "        <li class='nav-item'>\r\n" +
+       //                             "          <a class='nav-link' href='/customer'>" +
+       //                             "           <i class='fas fa-user-cog'></i>\r\n" +
+       //                             " Kunden" +
+       //                             "          </a>\r\n" +
+       //                             "        </li>\r\n" +
 
-                                    "        <li class='nav-item'>\r\n" +
-                                    "          <a class='nav-link' href='/log'>" +
-                                    "           <i class='fas fa-book'></i>\r\n" +
-                                    " Log" +
-                                    "          </a>\r\n" +
-                                    "        </li>\r\n" +
-                                    "        <li>\r\n" +
-                                    "          " +
-                                    "        </li>\r\n" +
+       //                             "        <li class='nav-item'>\r\n" +
+       //                             "          <a class='nav-link' href='/gsm'>" +
+       //                             "           <i class='fas fa-broadcast-tower'></i>\r\n" +
+       //                             " GSM" +
+       //                             "          </a>\r\n" +
+       //                             "        </li>\r\n" +
 
-                                    "        <li class='nav-item'>\r\n" +
-                                    "          <a class='nav-link' href='http://192.168.165.192:5555' target='_blank'>" +
-                                    "           <i class='fas fa-globe'></i>\r\n" +
-                                    " Fernwartung" +
-                                    "          </a>\r\n" +
-                                    "        </li>\r\n" +
-                                    "        <li>\r\n" +
-                                    "          " +
-                                    "        </li>\r\n" +
+       //                             "        <li class='nav-item'>\r\n" +
+       //                             "          <a class='nav-link' href='/log'>" +
+       //                             "           <i class='fas fa-book'></i>\r\n" +
+       //                             " Log" +
+       //                             "          </a>\r\n" +
+       //                             "        </li>\r\n" +
+       //                             "        <li>\r\n" +
+       //                             "          " +
+       //                             "        </li>\r\n" +
+
+       //                             "        <li class='nav-item'>\r\n" +
+       //                             "          <a class='nav-link' href='http://192.168.165.192:5555' target='_blank'>" +
+       //                             "           <i class='fas fa-globe'></i>\r\n" +
+       //                             " Fernwartung" +
+       //                             "          </a>\r\n" +
+       //                             "        </li>\r\n" +
+       //                             "        <li>\r\n" +
+       //                             "          " +
+       //                             "        </li>\r\n" +
             
-                                    "      </ul>\r\n" +
-                                    "      <form class='d-flex'>\r\n" +
-                                    "        <input class='form-control me-3' type='text' placeholder='Suche..'>\r\n" +
-                                    "        <button class='btn btn-primary' type='button'>Suche</button>\r\n" +
-                                    // "  <input class=\"form-check-input\" type=\"checkbox\" id=\"mySwitch\" name=\"darkmode\" value=\"yes\" checked>\r\n  <label class=\"form-check-label\" for=\"mySwitch\">Dark Mode</label>" +
-                                    "      </form>\r\n" +
-                                    "    </div>\r\n" +
-                                    "  </div>\r\n" +
-                                    "</nav>";
+       //                             "      </ul>\r\n" +                                    
+       //                             "      <form class='d-flex'>\r\n" +        
+       //                             "        <input class='form-control me-3' type='text' placeholder='Suche..'>\r\n" +
+       //                             "        <button class='btn btn-primary' type='button'>Suche</button>\r\n" +
+       //                             // "  <input class=\"form-check-input\" type=\"checkbox\" id=\"mySwitch\" name=\"darkmode\" value=\"yes\" checked>\r\n  <label class=\"form-check-label\" for=\"mySwitch\">Dark Mode</label>" +
+       //                             "      </form>\r\n" +                                   
+       //                             "    </div>\r\n" +
+       //                             "  </div>\r\n" +
+       //                             "</nav>";
 
         public const string Logo = @"<svg height='35' width='37'>
                                     <style>svg {background-color:#ffffff;margin-right:10px;}</style>
@@ -135,21 +195,6 @@ namespace MelBox2Dienst
                                     <polygon points='20,17 37,0 37,35' style='fill:darkcyan;' />
                                     Sorry, your browser does not support inline SVG.
                                   </svg>";
-
-        //private const string Link1 = "<li class='nav-item'>\r\n" +
-        //                             "  <a class='nav-link' href='/in'>" +
-        //                             "    <i class='fas fa-arrow-circle-down'></i>\r\n" +
-        //                             "    Posteingang" +
-        //                             "  </a>\r\n" +
-        //                             "</li>\r\n";
-
-        //private const string Link2 = "<li class='nav-item'>\r\n" +
-        //                             "  <a class='nav-link' href='/in'>" +
-        //                             "    <i class='fas fa-arrow-circle-up'></i>\r\n" +
-        //                             "    Postausgang" +
-        //                             "  </a>\r\n" +
-        //                             "</li>\r\n";
-
 
         public static string DatePicker(string route, DateTime date)
         {
@@ -197,6 +242,22 @@ namespace MelBox2Dienst
 
         #endregion
 
+        private static string GsmQualityIndicator()
+        {
+            string html = "<span>GSM</span>" +
+                "<div class='progress me-3' style='top:4em;right:2em;width:10em;margin:1em;'>";
+
+            if (System.Text.RegularExpressions.Regex.IsMatch(Pipe1.GsmSignalQuality, @"(\d{1,3})%"))
+                html += $"<div class='progress-bar' style='width:{Pipe1.GsmSignalQuality}'>{Pipe1.GsmSignalQuality}</div>";
+            else
+                html += "<div class='progress-bar bg-secondary progress-bar-striped progress-bar-animated' style='width:100%'>GSM</div>";
+
+            html += "</div>";
+
+            return html;
+        }
+
+
         #region Tabellendarstellung
         /// <summary>
         /// Wandelt DateTable in HTML-Table um
@@ -205,7 +266,7 @@ namespace MelBox2Dienst
         /// <returns>HTML-Tabelle</returns>
         public static string ConvertDataTable(DataTable dt)
         {
-            string html = "<table class='table table-striped'>";
+            string html = "<table id='table01' class='table table-striped'>";
             //add header row
             html += "<tr>";
             for (int i = 0; i < dt.Columns.Count; i++)
@@ -214,7 +275,7 @@ namespace MelBox2Dienst
             //add rows
             for (int i = 0; i < dt.Rows.Count; i++)
             {
-                html += "<tr>";
+                html += "<tr class='item'>";
                 for (int j = 0; j < dt.Columns.Count; j++)
                     html += "<td>" + dt.Rows[i][j].ToString() + "</td>";
                 html += "</tr>";
@@ -231,7 +292,7 @@ namespace MelBox2Dienst
         /// <returns></returns>
         public static string ConvertDataTable(DataTable dt, Dictionary<string, string> links)
         {
-            string html = "<table class='table table-striped'>";
+            string html = "<table id='table01' class='table table-striped'>";
             //add header row
             html += "<tr>";
             for (int i = 0; i < dt.Columns.Count; i++)
@@ -240,7 +301,7 @@ namespace MelBox2Dienst
             //add rows
             for (int i = 0; i < dt.Rows.Count; i++)
             {
-                html += "<tr>";
+                html += "<tr class='item'>";
                 for (int j = 0; j < dt.Columns.Count; j++)
                 {
                     if (links.ContainsKey(dt.Columns[j].ColumnName))
@@ -789,6 +850,34 @@ namespace MelBox2Dienst
             
             return sbNames.ToString();
         }
+
+        #endregion
+
+        #region LogIn auf Weboberfläche
+
+        ///// <summary>
+        ///// Javascript, um im lokalen Browser Benutzername und Identität zu speichern.
+        ///// </summary>
+        ///// <param name="username"></param>
+        ///// <param name="ident"></param>
+        ///// <returns></returns>
+        //internal static string SetWebStorage(string username, string ident)
+        //{
+        //    StringBuilder sb = new StringBuilder();
+
+        //    sb.AppendLine("<script>");
+        //    sb.AppendLine("function webstorage() {");
+        //    sb.AppendLine("  if (typeof (Storage) !== 'undefined') {");
+        //    sb.AppendLine("  localStorage.setItem('user','" + username + "');");
+        //    sb.AppendLine("  localStorage.setItem('ident','" + ident + "');");
+        //    sb.AppendLine("  window.location.replace('/');");
+        //    sb.AppendLine("  }");
+        //    sb.AppendLine("}");
+        //    sb.AppendLine(" webstorage();");
+        //    sb.AppendLine("</script>");
+
+        //    return sb.ToString();
+        //}
 
         #endregion
     }

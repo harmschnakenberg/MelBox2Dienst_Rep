@@ -55,11 +55,7 @@ namespace MelBox2Dienst
                         Html.DatePicker("in", date) +
                         Html.ConvertDataTable(
                         dataTable,
-                        new Dictionary<string, string>() {
-                          //  { "Sperregel", "blocked" },
-                            { "Nr", "in" }
-                        }
-                        );
+                        new Dictionary<string, string>() {{ "Nr", "in" }} );
                 }
                 #endregion
                 #region Suche nach Id
@@ -165,7 +161,7 @@ namespace MelBox2Dienst
                 html += Html.GuardFormUpdate(dataTable);
             }
             else if (context.Request.QueryString.Get("datum").Length > 0 && DateTime.TryParse(context.Request.QueryString.Get("datum"), out DateTime date))
-            {
+            {                
                 Console.WriteLine("Neue Bereitschaft erstellen ab " + date);
 
                 if (date.CompareTo(DateTime.Now.AddYears(-10)) < 0) date = DateTime.Now.Date; //Älter als 10 Jahre = ungültig

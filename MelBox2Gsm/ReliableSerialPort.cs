@@ -191,7 +191,9 @@ namespace MelBox2Gsm
                 if (!base.IsOpen) return recLine;
 
                 base.WriteLine(request);
+#if DEBUG
                 Program.Log.Sent(request);
+#endif
                 _wait.Reset();
 
                 if (!_wait.WaitOne(timeout))
@@ -201,7 +203,9 @@ namespace MelBox2Gsm
 #endif
                 }
 
+#if DEBUG
                 Program.Log.Recieved(recLine);
+#endif
                 string x = recLine;
                 recLine = string.Empty;
                 return x;

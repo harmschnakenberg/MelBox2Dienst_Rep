@@ -1,16 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Security.Policy;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using static MelBox2Gsm.Pipe3;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace MelBox2Gsm
 {
@@ -18,6 +10,8 @@ namespace MelBox2Gsm
     {
         const string ctrlz = "\u001a";
         public static string SimPin { get; set; } = ConfigurationManager.AppSettings["SimPin"];
+        public static int GsmPokeInterval { get; set; } = 30;
+
 
         #region GsmModemStatus
         public static string LastError { get; set; }
@@ -28,6 +22,7 @@ namespace MelBox2Gsm
         public static string OwnNumber { get; set; }
         public static string OwnName { get; set; }
         public static string CallRelayPhone { get; set; }
+        public static string NetworkWatchdog { get; set; }
         public static int NetworkRegistration { get; set; } = -1;
         public static int RingSecondsBeforeCallForwarding { get; private set; } = 5;
         public static string RingToneIdentification { get; set; }
@@ -263,8 +258,10 @@ namespace MelBox2Gsm
             }
 
             //Setze Rufumleitung
-            _ = Port.Ask($"AT+CCFC=0,3,\"{phone}\",145,1,{RingSecondsBeforeCallForwarding}");
+            //S.222: Zeitverzögerte Weiterleitung nur bei <reason>=2
+            
             //AT+CCFC=<reason>,<mode>[,<number>[,<type>[,<class>[,<time>]]]]
+            _ = Port.Ask($"AT+CCFC=2,3,\"{phone}\",145,1,{RingSecondsBeforeCallForwarding}", 5000);
 
             #region Prüfe Rufumleitung
             string answer = Port.Ask("AT+CCFC=2,2", 6000);
@@ -292,7 +289,8 @@ namespace MelBox2Gsm
         /// </summary>
         internal static void DeactivateCallRedirection()
         {
-            _ = Port.Ask("AT+CCFC=0,0");
+            if(Port.IsOpen)
+            _ = Port.Ask("AT+CCFC=0,0", 6000);
         }
 
 
@@ -302,15 +300,30 @@ namespace MelBox2Gsm
         /// <param name="recLine">vom GSM-Modem empfangene Zeichenkette</param>
         public static void CeckUnsolicatedIndicators(string recLine)
         {
-#if DEBUG
-            Log.Warn(recLine);
-#endif
+//#if DEBUG
+//            Log.Warn(recLine);
+//#endif
             #region Sprachanruf empfangen (Ereignis wird beim Klingeln erzeugt)
-            Match m3 = Regex.Match(recLine, @"\+CLIP: (.+),(?:\d+),,,,(?:\d+)");
+            //            Match m3 = Regex.Match(recLine, @"\+CLIP: (.+),(?:\d+),,,,(?:\d+)");
+            Match m3 = Regex.Match(recLine, @"\+CLIP: ""(.+)"",(?:\d+),,,,(?:\d+)");
+
+            #region Beispiel +CRING
+            //AT + CLIP = 1
+            //OK
+
+            //+ CRING: VOICE
+
+            //+ CLIP: "+4942122317123",145,,,,0
+
+            //+ CRING: VOICE
+
+            //+ CLIP: "+4942122317123",145,,,,0
+
 
             // +CLIP: < number >, < type >, , [, < alpha >][, < CLI validity >]
             //When CLIP is enabled at the TE(and is permitted by the calling subscriber), this URC is delivered after every
             //" RING " or " +CRING " URC when a mobile terminated call occurs.
+            #endregion
 
             if (m3.Success)                          
                 Pipe3.CallRecieved(m3.Groups[1].Value.Trim('"'));
@@ -532,6 +545,8 @@ namespace MelBox2Gsm
             //S. 231 f.
             _ = Port.Ask($"AT+CLIP={(active ? 1 : 0)}", 5000);
 
+            Thread.Sleep(1000);
+
             string answer = Port.Ask("AT+CLIP?");
 
             MatchCollection mc = Regex.Matches(answer, @"\+CLIP: (\d),(\d)");
@@ -593,7 +608,11 @@ namespace MelBox2Gsm
                 if (NetworkRegistration != regStatus) //Wenn sich die Signalqualität geändert hat
                 {
                     if (int.TryParse(mc[0].Groups[1].Value, out int mode))
-                        Log.Info($"Die Verbindung zum Provider wird {((mode > 0) ? "" : "nicht")} überwacht.");
+                    {
+                        NetworkWatchdog = $"Die Verbindung zum Provider wird {((mode > 0) ? "" : "nicht")} aktiv durch das GSM-Modem überwacht.";
+                        Log.Info(NetworkWatchdog);
+                        Pipe3.SendGsmStatus(nameof(NetworkWatchdog), NetworkWatchdog);
+                    }
 
                     string regStatusStr;
                     switch (regStatus)

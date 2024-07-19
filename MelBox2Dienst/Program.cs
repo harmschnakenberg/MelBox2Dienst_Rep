@@ -1,11 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Runtime.CompilerServices;
 using System.ServiceProcess;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MelBox2Dienst
 {
@@ -18,14 +12,13 @@ namespace MelBox2Dienst
         /// </summary>
         static void Main()
         {
-
             System.ServiceProcess.ServiceBase[] ServicesToRun;
 
             if (Environment.UserInteractive)
-            {               
-                MelBox2Service service1 = new MelBox2Service();
-                service1.TestStartupAndStop();
+            {
                 Log.Info($"{nameof(ServicesToRun)}={AppContext.BaseDirectory}");
+                MelBox2Service service1 = new MelBox2Service();
+                service1.TestStartupAndStop();                
             }
             else //Start als Dienst
             {

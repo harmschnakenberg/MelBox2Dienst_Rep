@@ -1,17 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.IO.Pipes;
 using System.IO;
+using System.IO.Pipes;
+using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace MelBox2Dienst
 {
     internal partial class Pipe1
     {
+
+        public static string GsmSignalQuality { get; private set; } = "-1%";
+
         #region Feste Begriffe für Pipe-Kommunikation
         internal static class PipeName
         {
@@ -195,17 +197,10 @@ namespace MelBox2Dienst
                         return line; //Erfolg: sende die Anfrage ungverändert zurück
                     else
                         return Answer(Verb.Error, arg);
-                case Verb.GsmStatus:
-                    //string query = JsonSerializer.Serialize(new Tuple<string, DateTime, string>(property, DateTime.Now, status));
-                    Tuple<string, DateTime, string> gsmStatus = JsonSerializer.Deserialize<Tuple<string, DateTime, string>>(arg);
-
-                    if (!GsmStatus.Keys.Contains(gsmStatus.Item1))
-                        GsmStatus.Add(gsmStatus.Item1, new Tuple<DateTime, string>(gsmStatus.Item2, gsmStatus.Item3));
-                    else
-                        GsmStatus[gsmStatus.Item1] = new Tuple<DateTime, string>(gsmStatus.Item2, gsmStatus.Item3);
-
+                case Verb.GsmStatus:                    
+                    UpdateGsmStatus(JsonSerializer.Deserialize<Tuple<string, DateTime, string>>(arg));
                     //Keine Rückantwort auf der Gegenseite erwartet
-                    return Answer(Verb.GsmStatus, string.Empty);                    
+                    return Answer(Verb.GsmStatus, string.Empty);
                 default:
                     return Answer(verb, "unbekannt " + arg);
 
@@ -223,7 +218,23 @@ namespace MelBox2Dienst
             return $"{verb}|{arg}";
         }
 
+        /// <summary>
+        /// Protokolliert gemeldete Änderungen einer Statusmeldung aus dem GSM-Modem z.B. Signalstärke,..
+        /// </summary>
+        /// <param name="gsmStatus"></param>
+        private static void UpdateGsmStatus(Tuple<string, DateTime, string> gsmStatus)
+        {
+            if (!GsmStatus.Keys.Contains(gsmStatus.Item1))
+                GsmStatus.Add(gsmStatus.Item1, new Tuple<DateTime, string>(gsmStatus.Item2, gsmStatus.Item3));
+            else
+                GsmStatus[gsmStatus.Item1] = new Tuple<DateTime, string>(gsmStatus.Item2, gsmStatus.Item3);
 
+            if (gsmStatus.Item1 == "SignalQuality" && Pipe1.GsmSignalQuality != gsmStatus.Item3)
+            {
+                Log.Info("GSM-Signalstärke " + gsmStatus.Item3);
+                Pipe1.GsmSignalQuality = gsmStatus.Item3;
+            }
+        }
 
         #endregion
 

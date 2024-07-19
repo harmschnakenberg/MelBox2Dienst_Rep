@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO.Pipes;
 using System.IO;
-using System.Linq;
+using System.IO.Pipes;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -97,17 +96,6 @@ namespace MelBox2Gsm
 
         #region Senden und Antwort empfangen
 
-        //private static readonly Queue<Tuple<string,string,string>> sendList = new Queue<Tuple<string, string, string>>();
-
-        //private static async Task<KeyValuePair<string, string>> Send(string pipeName, string verb, string arg)
-        //{
-        //    sendList.Enqueue(new Tuple<string, string, string>(pipeName, verb, arg));
-
-        //    SendList();
-        //}
-
-
-
         /// <summary>
         /// Sendet einen Befehl und Inhalt mittels NamedPipe
         /// </summary>
@@ -118,8 +106,6 @@ namespace MelBox2Gsm
         private static async Task<KeyValuePair<string, string>> Send(string pipeName, string verb, string arg)
         {
             
-
-            //Tuple<string, string, string> query = sendList.Dequeue();
             try
             {
                 using (var client = new NamedPipeClientStream(pipeName))
@@ -231,6 +217,10 @@ namespace MelBox2Gsm
 
         #region Anfragen absenden
 
+        /// <summary>
+        /// Gibt eine Fehlermeldung aus dem GSM-Modem an DB weiter
+        /// </summary>
+        /// <param name="msg"></param>
         internal static async void GsmErrorOccuredAsync(string msg)
         {
             _ = await Send(PipeName.MelBox2Service, Verb.Error, msg);
@@ -260,6 +250,11 @@ namespace MelBox2Gsm
 
         }
 
+        /// <summary>
+        /// Überträgt einen empfangenen StatusReport zu einer versendeten SMS an die Datenbank.
+        /// Bei erfolg wird der SttusReport und die gesendete SMS aus dem GSM-Modem gelöscht.
+        /// </summary>
+        /// <param name="reportIn"></param>
         internal async static void ReportRecieved(StatusReport reportIn)
         {            
             var answer = await Pipe3.Send(Pipe3.PipeName.MelBox2Service, Pipe3.Verb.ReportRecieved, JsonSerializer.Serialize(reportIn));
@@ -273,16 +268,13 @@ namespace MelBox2Gsm
 
         }
 
-        // case Verb.CallRecieved:
-        //            string callingNumber = arg;
-        ////eingegangenen Sprachanruf protokollieren
-        //_ = Sql.CreateSent(callingNumber, Sql.CallRelayPhone);
-
-        //            //keine Antwort erforderlich (GSM-Modem leitet selbständig weiter)
-
-        internal async static void CallRecieved(string incomingCallphone)
+        /// <summary>
+        /// Meldet einen eingehenden Sprachanruf an DB
+        /// </summary>
+        /// <param name="incomingCallphone"></param>
+        internal static void CallRecieved(string incomingCallphone)
         {
-            _ = await Send(PipeName.MelBox2Service, Verb.CallRecieved, incomingCallphone);
+            _ = Send(PipeName.MelBox2Service, Verb.CallRecieved, incomingCallphone);
         }
 
 
@@ -297,42 +289,6 @@ namespace MelBox2Gsm
             _ = await Pipe3.Send(PipeName.MelBox2Service, Verb.GsmStatus, query);
             //Keine Rückantwort erwartet
         }
-
-
-        /// <summary>
-        /// Veranlasst das Senden von ein/mehreren SMS. Protokolliert den erfolgreichen Versand in DB
-        /// </summary>
-        /// <param name="guards">Liste der Telefonnummern, an die die SMS gesendet werden soll</param>
-        /// <param name="sms">Sms-Object</param>
-        /// <param name="messageId">Id des Nachrichteninhalts aus der DB</param>
-        //internal async static void SendSms(Sms sms)
-        //{
-
-        //        if (IsPhoneNumber(sms.Phone))
-        //        {                    
-        //            string result = await Send(PipeName.Gsm, Verb.SmsSend, JsonSerializer.Serialize<Sms>(sms));
-
-        //            #region SMS-Id der gesendeten SMS in DB eintragen.
-        //            //Erwartete Antwort : 'SmsSend|[JSON-Object Sms]' mit sms.Index = aktueller Index in GSM-Modem.
-
-        //            string[] args = result?.Split('|');
-        //            if (args.Length != 2)
-        //            {
-        //                Log.Error($"Sms-Versand an '{phone}' konnte nicht bestätigt werden; Antwort von DB ungültig: '{result}'");
-        //                break;
-        //            }
-
-        //            Sms smsAnswer = JsonSerializer.Deserialize<Sms>(args[1]);
-
-        //            if (smsAnswer.Index > 0) //-> Die SMS wurde versand und im GSM-Modem auf einem Index gespeichert.
-        //                Sql.CreateSent(messageId, smsAnswer);
-        //            else
-        //                Log.Error($"Sms-Versand an '{phone}' konnte nicht bestätigt werden; '{sms.Content}'");
-        //            #endregion
-        //        }
-
-
-        //}
 
         /// <summary>
         /// Prüft, ob ein String dem Format '+000000...' entspricht
