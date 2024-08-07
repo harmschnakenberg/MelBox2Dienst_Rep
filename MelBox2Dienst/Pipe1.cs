@@ -117,8 +117,11 @@ namespace MelBox2Dienst
                         await writer.WriteLineAsync($"{verb}|{arg}");
                         await writer.FlushAsync();
                         string result = await reader.ReadLineAsync();
-                        string[] args = result.Split('|');
-                        return new KeyValuePair<string, string>(args[0], args[1]);
+                        if (result != null)
+                        {
+                            string[] args = result.Split('|');
+                            return new KeyValuePair<string, string>(args[0], args[1]);
+                        }
                     }
                 }
             }
@@ -191,7 +194,16 @@ namespace MelBox2Dienst
                     //keine Antwort erforderlich (GSM-Modem leitet selbständig weiter)
                     return null;
                 case Verb.EmailRecieved:
-                    Email email = JsonSerializer.Deserialize<Email>(arg);
+                    Log.Info($"Email recieved:\r\n{arg}\r\n\r\n---\r\n\r\n");
+                    Email email = new Email();
+                    try
+                    {
+                        email = JsonSerializer.Deserialize<Email>(arg);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"ParseQuery() mit {verb}: Fehler:\r\n" + ex);
+                    }
 
                     if (Sql.MessageRecieveAndRelay(email))
                         return line; //Erfolg: sende die Anfrage ungverändert zurück
@@ -256,17 +268,12 @@ namespace MelBox2Dienst
                     sms.Phone = phone; //Setze den neuen Empfänger (Bereitschaft)
 
                     var pipeAnswer = await Send(PipeName.Gsm, Verb.SmsSend, JsonSerializer.Serialize<Sms>(sms));
+                    
+                    if (pipeAnswer.Value?.Length == 0) //Fehler (z.B. Pipe zu GSM-Modem?): Wie abfangen?
+                        return;
 
                     #region SMS-Id der gesendeten SMS in DB eintragen.
                     //Erwartete Antwort : 'SmsSend|[JSON-Object Sms]' mit sms.Index = aktueller Index in GSM-Modem.
-
-                   
-                    //if (smsAnswer.Value.Length != 2)
-                    //{
-                    //    Log.Error($"Sms-Versand an '{phone}' konnte nicht bestätigt werden; Antwort von DB ungültig: '{result}'");
-                    //    break;
-                    //}
-
                     Sms smsAnswer = JsonSerializer.Deserialize<Sms>(pipeAnswer.Value);
 
                     if (smsAnswer.Index > 0) //-> Die SMS wurde versand und im GSM-Modem auf einem Index gespeichert.
@@ -279,12 +286,35 @@ namespace MelBox2Dienst
 
         }
 
-
-        internal static void SendEmail(Email email)
+        internal static async void SendSmsAsync(Sms sms)
         {
+            if (!IsPhoneNumber(sms.Phone)) 
+                return;
+            
+                KeyValuePair<string, string> pipeAnswer = await Send(PipeName.Gsm, Verb.SmsSend, JsonSerializer.Serialize(sms));
+
+            if (pipeAnswer.Value?.Length == 0) //Fehler (z.B. Pipe zu GSM-Modem?): Wie abfangen?
+                return;
+
+            #region SMS-Id der gesendeten SMS in DB eintragen.
+            //Erwartete Antwort : 'SmsSend|[JSON-Object Sms]' mit sms.Index = aktueller Index in GSM-Modem.
+            Sms smsAnswer = JsonSerializer.Deserialize<Sms>(pipeAnswer.Value);
+
+            if (smsAnswer.Index > 0) //-> Die SMS wurde versand und im GSM-Modem auf einem Index gespeichert.
+                Sql.CreateSent(0, smsAnswer);
+            else
+                Log.Error($"Sms-Versand an '{sms.Phone}' konnte nicht bestätigt werden; '{sms.Content}'");
+            #endregion
+        }
+
+
+        internal static async void SendEmail(Email email)
+        {
+            Log.Info(email.ToString());
+
+            KeyValuePair<string, string> pair = await Send(Pipe1.PipeName.Email, Verb.EmailSend, JsonSerializer.Serialize(email));
             Log.Info(
-                "NamedPipe SendEmail(): " +
-                Send(Pipe1.PipeName.Email, Verb.EmailSend, JsonSerializer.Serialize(email))
+                "NamedPipe SendEmail(): " + pair.Key + "\t" + pair.Value
                 );
         }
 
@@ -312,11 +342,14 @@ namespace MelBox2Dienst
                 return callRelay;
 
             callRelay.Phone = phone;
-            var result = await Send(PipeName.Gsm, Verb.CallRelay, JsonSerializer.Serialize( callRelay ) );
+            KeyValuePair<string, string> result = await Send(PipeName.Gsm, Verb.CallRelay, JsonSerializer.Serialize( callRelay ) );
 
             //string[] args = result?.Split('|');
             //if (args.Length != 2)
             //    return callRelay;
+
+            if (result.Value?.Length == 0)
+                return callRelay;
 
             //Rückgabe: aktuell im Modem hinterlegte Sprachanrufumleitung
             return JsonSerializer.Deserialize<CallRelay>(result.Value);

@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace MelBox2Email
@@ -116,6 +117,9 @@ namespace MelBox2Email
                         await writer.WriteLineAsync($"{verb}|{arg}");
                         await writer.FlushAsync();
                         string result = await reader.ReadLineAsync();
+                        if (result == null)
+                            return new KeyValuePair<string, string> (string.Empty, string.Empty);
+
                         string[] args = result.Split('|');
                         return new KeyValuePair<string, string>(args[0], args[1]);
                     }
@@ -152,7 +156,12 @@ namespace MelBox2Email
 
             switch (verb)
             {
-               
+                case Verb.EmailSend:
+                    MelBox2EmailService.OutlookApp_SendMail(JsonSerializer.Deserialize<Email>(arg));
+                    return Answer(verb, arg);
+                    case Verb.EmailRecieved: 
+                    //keine Antwort erwartet
+                    return Answer(verb, string.Empty);
                 default:
                     return Answer(verb, "unbekannt " + arg);
 
@@ -186,8 +195,40 @@ namespace MelBox2Email
             //Log.Error(msg);
         }
 
-      
+        internal static async void EmailRecieved(Email email)
+        {
+            
+            _ = await Send(PipeName.MelBox2Service, Verb.EmailRecieved, JsonSerializer.Serialize(email));
+        }
+
         #endregion
     }
 
+    public class Email
+    {
+        public Email()
+        {
+            //ohne leeren Constructor Fehler:
+            // ystem.InvalidOperationException: Each parameter in the deserialization constructor on type 'MelBox2Dienst.Email' must bind to an object property or field on deserialization. Each parameter name must match with a property or field on the object. Fields are only considered when 'JsonSerializerOptions.IncludeFields' is enabled. The match can be case-insensitive.
+        }
+
+        public Email(string from, List<string> to, List<string> cc, string subject, string content)
+        {
+            From = from;
+            To = to ?? new List<string>();
+            Cc = cc ?? new List<string>();
+            Subject = subject;
+            Body = content;
+        }
+
+        public string From { get; set; }
+
+        public List<string> To { get; set; } = new List<string>();
+
+        public List<string> Cc { get; set; } = new List<string>();
+
+        public string Subject { get; set; }
+
+        public string Body { get; set; }
+    }
 }

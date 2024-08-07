@@ -281,6 +281,30 @@ namespace MelBox2Dienst
                 //query = @"CREATE TABLE IF NOT EXISTS Call (                        
                 //            Phone TEXT NOT NULL DEFAULT '+491728362586' 
                 //            );";
+
+                query = @"CREATE VIEW View_WatchedSenders AS 
+                        SELECT Customer.Id, Customer.Name, Customer.Phone AS Telefon, Customer.Email AS 'E-Mail', Customer.MaxInactiveHours || ' Std.' AS 'Max. Inaktiv',
+						MAX(datetime(Recieved.Time, 'localtime')) AS 'Letzte Nachricht'
+                        FROM Customer 
+						JOIN Recieved ON Customer.Id = Recieved.SenderId 
+						WHERE MaxInactiveHours > 0 
+                        GROUP BY Name
+						ORDER BY Name;";
+                NonQueryAsync(query, null);
+
+
+                query = @"CREATE VIEW View_Overdue AS  
+                         SELECT Customer.Id AS Id, Customer.Name, Phone AS Telefon, Email AS 'E-Mail', Customer.MaxInactiveHours || ' Std.' AS 'Max. Inaktiv', 
+						 CAST((strftime('%s', 'now') - strftime('%s', Recieved.Time, '+' || MaxInactiveHours || ' hours')) / 3600 AS INTEGER) || ' Std.' AS 'Fällig seit',
+                         MAX(datetime(Recieved.Time, 'localtime')) AS 'Letzte Nachricht', 
+                         Message.Content AS Inhalt                         
+                         FROM Recieved JOIN Customer ON Customer.Id = Recieved.SenderId 
+                         JOIN Message ON Message.Id = ContentId 
+                         WHERE MaxInactiveHours > 0 
+                         GROUP BY Recieved.SenderId 
+                         HAVING CAST((strftime('%s', 'now') - strftime('%s', Recieved.Time, '+' || MaxInactiveHours || ' hours')) / 3600 AS INTEGER) > 0; ";
+                NonQueryAsync(query, null);
+
                 #endregion
 
                 #region Tabellen füllen

@@ -8,8 +8,14 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MelBox2Pipe", "MelBox2Pipe\MelBox2Pipe.csproj", "{FFF940F8-3157-4B08-982B-47A74AC91013}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MelBox2Gsm", "MelBox2Gsm\MelBox2Gsm.csproj", "{9627E29D-65A9-4EAB-8CA9-8B4F8CE68FB3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{CA9C6E83-32ED-45D4-A461-167EE5D92FDB} = {CA9C6E83-32ED-45D4-A461-167EE5D92FDB}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MelBox2Email", "MelBox2Email\MelBox2Email.csproj", "{5672ADDC-13BB-4385-A7E0-27CCF52425BE}"
+	ProjectSection(ProjectDependencies) = postProject
+		{CA9C6E83-32ED-45D4-A461-167EE5D92FDB} = {CA9C6E83-32ED-45D4-A461-167EE5D92FDB}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

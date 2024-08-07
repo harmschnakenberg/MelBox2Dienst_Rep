@@ -64,7 +64,7 @@ namespace MelBox2Dienst
         }
 
         /// <summary>
-        /// Trägt eine neu Empfangene Nachricht in die Datenbank ein und gibt derne Id wieder.
+        /// Trägt eine neu Empfangene Nachricht in die Datenbank ein und gibt derne Id (MessageId) wieder.
         /// </summary>
         /// <param name="sms">Empfangene Nachricht</param>
         /// <returns>Id des Inhalts der Nachricht (Message.Id)</returns>
@@ -93,6 +93,11 @@ namespace MelBox2Dienst
             return messageId;
         }
 
+        /// <summary>
+        /// Trägt eine neu Empfangene Nachricht in die Datenbank ein und gibt derne Id (MessageId) wieder.
+        /// </summary>
+        /// <param name="email">Empfangene Nachricht</param>
+        /// <returns>Id des Inhalts der Nachricht (Message.Id)</returns>
         internal static uint CreateRecievedMessage(Email email)
         {
             #region Absender protokollieren und identifizieren
@@ -118,7 +123,10 @@ namespace MelBox2Dienst
             return messageId;
         }
 
-
+        /// <summary>
+        /// Prüft ob jetzt Geschäftszeit ist.
+        /// </summary>
+        /// <returns>true = normale Geschäftszeit / keine Notdienstzeit</returns>
         internal static bool IsBuisinesTimeNow()
         {
             DateTime now = DateTime.Now;
@@ -143,6 +151,12 @@ namespace MelBox2Dienst
             return true;
         }
 
+        /// <summary>
+        /// Archiviert die emfangene Sms in DB, sendet sie an die ständigen E-Mail-Empfänger (Service), prüft, 
+        /// ob sie an die Bereitschaft gesendet werden muss und versendet sie ggf. als SMS(en)
+        /// </summary>
+        /// <param name="sms">eingegangene Sms</param>
+        /// <returns>erfogreich abgelegt und weitergeleitet</returns>
         internal static bool MessageRecieveAndRelay(Sms sms)
         {
             try
@@ -160,9 +174,9 @@ namespace MelBox2Dienst
                 #endregion
 
                 #region Email versenden
-                string body = $"SMS Absender >{sms.Phone}<\r\n" +
-                    $"SMS Text >{sms.Content}<\r\n" +
-                    $"SMS Sendezeit >{sms.Time}<\r\n\r\n";
+                string body = $"SMS Absender>\t{sms.Phone}<\r\n" +
+                    $"SMS Text\t>{sms.Content}<\r\n" +
+                    $"SMS Sendezeit\t>{sms.Time}<\r\n\r\n";
 
                 if (isBlocked)
                     body += "Keine Weiterleitung an Bereitschaftshandy da SMS gesperrt.\r\n";
@@ -171,14 +185,16 @@ namespace MelBox2Dienst
                 else if (isBuisinessTime)
                     body += "Keine Weiterleitung an Bereitschaftshandy während der Geschäftszeit.\r\n";
 
-                Email email = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), body);
+                string subject = sms.Content.Length > 32 ? sms.Content.Substring(0, 32) : sms.Content;
+
+                Email email = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), null, subject, body);
                 Pipe1.SendEmail(email);
 
                 #endregion
 
                 #region SMS versenden                
                 if (!(isBlocked || isBuisinessTime || isAlifeMessage))                    
-                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).ToList(), sms, messageId);
+                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).Where(y => y?.Length > 3).ToList(), sms, messageId);
                 #endregion
 
                 return messageId > 0;
@@ -190,8 +206,22 @@ namespace MelBox2Dienst
             }
         }
 
+        /// <summary>
+        /// Archiviert die emfangene Email in DB, sendet sie an die ständigen E-Mail-EMpfänger (Service), prüft, ob sie an die Bereitschaft gesendet werden muss und versendet sie ggf. als SMS(en)
+        /// </summary>
+        /// <param name="emailIn"></param>
+        /// <returns>erfogreich abgelegt und weitergeleitet</returns>
         internal static bool MessageRecieveAndRelay(Email emailIn)
         {
+            if (emailIn.From == emailIn.To.First()) //Sollte im Normalbetrieb nicht vorkommen
+                return false;
+
+            if (emailIn.Body?.Length == 0)
+                return false;
+
+            //if (emailIn.Body.Length > 250) //Lange Emails abschneiden(?)
+            //    emailIn.Body = emailIn.Body.Substring(0, 250) + "[...]";
+
             try
             {
                 uint messageId = Sql.CreateRecievedMessage(emailIn);
@@ -202,27 +232,28 @@ namespace MelBox2Dienst
                 List<Service> currentGuards = Sql.SelectCurrentGuards();
 
                 //if (!isBlocked) //wieder raus genommen
-                //    permanentGuards.AddRange(currentGuards); //Wenn Bereitschaft eien E-Mail-Adresse angegeben hat, auch dahin schicken
+                //    permanentGuards.AddRange(currentGuards); //Wenn Bereitschaft eine E-Mail-Adresse angegeben hat, auch dahin schicken
                 #endregion
 
                 #region Email versenden
-                string body = $"Email Absender >{emailIn.From}<\r\n" +
-                    $"SMS Text >{emailIn.Body}<\r\n\r\n";
+                string body = $"Email Absender\t>{emailIn.From}<\r\n" +
+                    $"Text\t>{emailIn.Body.Replace("\r\n", " ")}<\r\n\r\n";
 
                 if (isBlocked)
                     body += "Keine Weiterleitung an Bereitschaftshandy da gesperrt.\r\n";
 
-                Email emailOut = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), body);
+                string subject = emailIn.Body.Length > 32 ? emailIn.Body.Substring(0, 32) : emailIn.Body;
+
+                Email emailOut = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), null, subject, body);
                 Pipe1.SendEmail(emailOut);
 
                 #endregion
 
                 #region SMS versenden
-                Sms smsOut = new Sms(-1, DateTime.Now, "", RemoveUmlauts(emailIn.Body).Substring(0, Math.Min(emailIn.Body.Length, 160) ) );
+                Sms smsOut = new Sms(-1, DateTime.Now, "", RemoveUmlauts(emailIn.Body).Substring(0, Math.Min(emailIn.Body.Length, 160)));
 
-                if (!isBlocked)
-                    //Pipes.SendSms(currentGuards.Select(x => x.Phone).ToList(), sms, messageId);
-                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).ToList(), smsOut, messageId);
+                if (!isBlocked)                   
+                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).Where(y => y?.Length > 3).ToList(), smsOut, messageId);
                 #endregion
 
                 return messageId > 0;
@@ -234,9 +265,15 @@ namespace MelBox2Dienst
             }
         }
 
+        /// <summary>
+        /// Prüft, ob es sich um eine Routinemeldung handelt.
+        /// </summary>
+        /// <param name="message">Inhalt der eingegangenen Nachricht</param>
+        /// <returns>true = Nachricht enthält Trigger-Worte, die auf eine Routinemaldung schließen lassen.</returns>
         internal static bool IsAlifeMessage(string message)
         {
-            if(message.ToLower().Contains("MelSysOK") || message.ToLower().Contains("SgnAlarmOK"))
+            if(message.ToLower().Contains("MelSysOK") || 
+                message.ToLower().Contains("SgnAlarmOK"))
                 return true;
 
             return false;
@@ -509,7 +546,7 @@ namespace MelBox2Dienst
         {
             Dictionary<string, object> args = new Dictionary<string, object>
             {
-                { "@Message", message }
+                { "@Message", message.Substring(0, Math.Min(255, message.Length)) } //maximale Länge beschränken
             };
 
             //TODO: Sicherstellen, dass der inhalt von Message eindeuig in der Datenbank ist!!!
@@ -538,12 +575,6 @@ namespace MelBox2Dienst
 
             return uint.Parse(messageId.ToString());
         }
-
-        
-
-       
-
-
 
         /// <summary>
         /// Ändert eine vorhandene Sperregel
@@ -629,7 +660,8 @@ namespace MelBox2Dienst
         {
             #region Empfänger protokollieren und identifizieren
             uint serviceId = Sql.GetServiceId(sms);
-            //uint messageId = Sql.SelectMessageIdByContent(sms.Content);
+            if (messageId == 0)
+                messageId = Sql.SelectMessageIdByContent(sms.Content);
             #endregion
 
             #region Sms-Empfang protokollieren
@@ -785,17 +817,40 @@ namespace MelBox2Dienst
 
     public class Email
     {
-        public Email(string from, List<string> to, string content) {
+        public Email()
+        {
+            //ohne leeren Constructor Fehler:
+            // ystem.InvalidOperationException: Each parameter in the deserialization constructor on type 'MelBox2Dienst.Email' must bind to an object property or field on deserialization. Each parameter name must match with a property or field on the object. Fields are only considered when 'JsonSerializerOptions.IncludeFields' is enabled. The match can be case-insensitive.
+        }
+
+        public Email(string from, List<string> to, List<string> cc, string subject, string content)
+        {
             From = from;
-            To = to;
+            To = to ?? new List<string>();
+            Cc = cc ?? new List<string>();
+            Subject = subject;
             Body = content;
         }
 
         public string From { get; set; }
 
-        public List<string> To { get; set; }
+        public List<string> To { get; set; } = new List<string>();
+
+        public List<string> Cc { get; set; } = new List<string>();
+
+        public string Subject { get; set; }
 
         public string Body {get; set; }
+
+        public override string ToString()
+        {
+            return $"\r\n{nameof(From)}:\t{From}\r\n" +
+                $"{nameof(To)}:\t{string.Join(", ", To) }\r\n"+
+                 $"{nameof(Cc)}:\t{string.Join(", ", Cc)}\r\n"+
+                 $"{nameof(Subject)}:\t{Subject}\r\n" +
+                 $"{nameof(Body)}:\r\n{Body.Replace("\r\n", " ")}\r\n"
+                ;
+        }
     }
 
     #endregion

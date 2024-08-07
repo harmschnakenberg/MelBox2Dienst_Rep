@@ -5,8 +5,10 @@ using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 
@@ -14,17 +16,41 @@ namespace MelBox2Email
 {
     public partial class MelBox2EmailService : ServiceBase
     {
+        const string PR_SMTP_ADDRESS = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
+
         public static int EmailPokeInterval { get; set; } = 60;
 
         static readonly Application OutlookApp = new Application();
         static readonly NameSpace OutlookNamespace = OutlookApp.GetNamespace("MAPI");
-        readonly MAPIFolder inboxFolder = OutlookNamespace.GetDefaultFolder(OlDefaultFolders.olFolderInbox);
-        readonly MAPIFolder archiveFolder = OutlookNamespace.GetDefaultFolder(OlDefaultFolders.olFolderJournal);
+        static readonly MAPIFolder inboxFolder = OutlookNamespace.GetDefaultFolder(OlDefaultFolders.olFolderInbox);
+        static MAPIFolder archiveFolder = OutlookNamespace.GetDefaultFolder(OlDefaultFolders.olFolderJournal);
         
 
         public MelBox2EmailService()
         {
             InitializeComponent();
+            SetCustomArchiveFolder("ArchivOrdner");
+        }
+
+        /// <summary>
+        /// Setzt oder erstellt einen Archivierungsordner als Unterordner des Posteingangs in Outlook.
+        /// Empfangene E-Mails werden nach Auswertung in diesen Ordner verschoben.
+        /// </summary>
+        /// <param name="archiveFolderName">Name des Ordners in Outlook</param>
+        private static void SetCustomArchiveFolder(string archiveFolderName)
+        {
+            //Quelle: https://www.c-sharpcorner.com/article/outlook-integration-in-C-Sharp/
+            
+            foreach (MAPIFolder subFolder in inboxFolder.Folders)
+            {
+                if (subFolder.Name == archiveFolderName)
+                {
+                    archiveFolder = subFolder;
+                    return;
+                }
+            }
+
+            archiveFolder = inboxFolder.Folders.Add(archiveFolderName, Type.Missing);
         }
 
         internal void TestStartupAndStop()
@@ -40,6 +66,8 @@ namespace MelBox2Email
 
         protected override void OnStart(string[] args)
         {
+            Pipe4.StartPipeServer(Pipe4.PipeName.Email, true);
+
             OutlookNamespace.Logon();
             OutlookApp.NewMail += OutlookApp_NewMail;
 
@@ -77,7 +105,149 @@ namespace MelBox2Email
 #endif
             OutlookApp_NewMail();
 
+            // Zum Testen:
+            //string[] to = { "harmschnakenberg@gmx.de" };
+            //string[] cc = { "harm.schnakenberg@kreutztraeger.de" };
+            //OutlookApp_SendMail(to, cc, "Ein Test", "Testweise gesendet. " + DateTime.Now);
+
         }
+
+  
+
+        private void OutlookApp_NewMail()
+        {           
+            // Retrieve the emails in the Inbox folder
+            Items emails = inboxFolder.Items; //TEST nur eine Mail
+
+            foreach (MailItem email in emails)
+            {
+                try
+                {
+                    //nur ungelesene Nachrichten einlesen // Später rausnehmen?
+                    if (email.UnRead == false)
+                        continue;
+
+                    email.Recipients.ResolveAll();
+                    string from = email.Sender.PropertyAccessor.GetProperty(PR_SMTP_ADDRESS) as string;
+                    string subject = email.Subject;
+                    string body = email.Body;
+                    List<string> to = GetSMTPAddressForRecipients(email, OlMailRecipientType.olTo);
+                    List<string> cc = GetSMTPAddressForRecipients(email, OlMailRecipientType.olCC);
+
+
+                    #region in Konsole anzeigen
+                    if (Environment.UserInteractive)
+                    {
+                        Console.WriteLine(new string('_', 32));
+                        Console.WriteLine("Sender: " + from);
+                        Console.Write("To: ");
+                        foreach (var item in to)                        
+                            Console.Write(item + ", ");
+                        Console.Write("\r\nCc: ");
+                        foreach (var item in cc)
+                            Console.Write(item + ", ");
+
+                        Console.WriteLine("\r\nSubject: " + subject);
+                        Console.WriteLine("Body:\r\n" + (body.Length > 32 ? body.Substring(0,32) : body).Replace("\r\n", " ") );
+                        Console.WriteLine(new string('_', 32));
+                    }
+                    #endregion
+                                        
+               
+                    if (to.Count == 0) //Gürtel + Hosenträger
+                        to.Add(email.To);
+
+                    Email pipeEmail = new Email(from, to, cc, subject, body);
+                   
+
+                    Pipe4.EmailRecieved(pipeEmail);
+                    Thread.Sleep(1000);
+//#if !DEBUG
+                    email.Move(archiveFolder);
+//#endif          
+                }
+                catch (System.Exception ex)
+                {
+                    // Handle specific exceptions related to email processing
+                    Console.WriteLine("Error processing email: " + ex.Message);
+                }
+            }
+
+        }
+
+        /// <summary>
+        /// Liest die E-Mail-Adresse aus dem object MailItem.Address
+        /// Quelle:https://learn.microsoft.com/en-us/office/client-developer/outlook/pia/how-to-get-the-e-mail-address-of-a-recipient
+        /// </summary>
+        /// <param name="mail"></param>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        private List<string> GetSMTPAddressForRecipients(MailItem mail, OlMailRecipientType type)
+        {
+            List<string> addresses = new List<string>();
+
+            
+            Recipients recips = mail.Recipients;
+            foreach (Recipient recip in recips)
+            {
+                if (recip.Type != (int)type)
+                    continue;
+
+                PropertyAccessor pa = recip.PropertyAccessor;
+                string smtpAddress =
+                    pa.GetProperty(PR_SMTP_ADDRESS).ToString();
+#if DEBUG
+                Debug.WriteLine(recip.Name + " SMTP=" + smtpAddress);
+#endif
+                addresses.Add(smtpAddress);
+            }
+
+            return addresses;
+        }
+
+        internal static void OutlookApp_SendMail(Email email)
+        {
+            OutlookApp_SendMail(email.To.ToArray(), email.Cc.ToArray(), email.Subject, email.Body);
+        }
+
+        private static void OutlookApp_SendMail(string[] to, string[] cc, string subject, string body, bool deleteAfterSubmit = false)
+        {
+            MailItem mailItem = OutlookApp.CreateItem(OlItemType.olMailItem);
+
+            //mailItem.To = "recipient@example.com";
+
+            if (cc != null)
+                foreach (var recipient in to)
+                    mailItem.Recipients.Add(recipient).Type = (int)OlMailRecipientType.olTo;
+
+            if (cc != null)
+                foreach (var recipient in cc)
+                    mailItem.Recipients.Add(recipient).Type = (int)OlMailRecipientType.olCC;
+
+            mailItem.Recipients.ResolveAll();
+            mailItem.Subject = subject;
+            mailItem.Body = body;
+            //mailItem.Save(); //Falls nicht alle EMpfänger aufgelöst werdne können. Quelle: https://stackoverflow.com/questions/28592906/get-recipients-from-outlook-mailitem
+
+            // Attach a file to the email (optional)
+            //mailItem.Attachments.Add("C:\\temp\\file.txt");
+
+            //unter anderem Email-Account versenden
+            //mailItem.SendUsingAccount = new Application().Session.Accounts["from@mail.com"];
+
+            mailItem.DeleteAfterSubmit = deleteAfterSubmit;
+
+            if (mailItem.Recipients.Count > 0
+                && mailItem.Subject.Length > 0
+                && mailItem.Body.Length > 0)
+            {
+                mailItem.Send();
+            }
+            // Release the COM object
+            Marshal.ReleaseComObject(mailItem);
+        }
+
+    
 
         /// <summary>
         /// 
@@ -144,31 +314,6 @@ namespace MelBox2Email
         //    Console.ReadKey();
         //}
 
-        private void OutlookApp_NewMail()
-        {
-            // Retrieve the emails in the Inbox folder
-            Items emails = inboxFolder.Items;
-
-            foreach (MailItem email in emails)
-            {
-                try
-                {
-                    Console.WriteLine("Subject: " + email.Subject);
-                    Console.WriteLine("Sender: " + email.SenderName);
-                    Console.WriteLine("Body: " + email.Body);
-                    Console.WriteLine();
-
-                    //email.Move(archiveFolder);
-                }
-                catch (System.Exception ex)
-                {
-                    // Handle specific exceptions related to email processing
-                    Console.WriteLine("Error processing email: " + ex.Message);
-                }
-            }
-
-        }
-
         //private void OutlookApp_NewMailEx(string EntryIDCollection)
         //{
         //    MailItem mailItem = outlookNamespace.GetItemFromID(EntryIDCollection, folder.StoreID) as Outlook.MailItem;
@@ -219,5 +364,5 @@ namespace MelBox2Email
 
 
 
-    
+
 }

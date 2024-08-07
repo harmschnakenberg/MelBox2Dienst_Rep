@@ -231,6 +231,37 @@ namespace MelBox2Dienst
             await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
         }
 
+        [RestRoute("Get", "/overdue")]
+        public static async Task OverdueRoute(IHttpContext context)
+        {
+            DataTable dt = Sql.SelectOverdueCustomers();
+            string html = "<h4>Meldeweg&uuml;berwachung</h4>";
+               
+            if (dt.Rows.Count == 0)
+                html += "<div class='alert alert-success alert-dismissible'>\r\n" +
+                    "  <button type='button' class='btn-close' data-bs-dismiss='alert'></button>" +
+                    "  <strong>Kein Handlungsbedarf</strong> Alle überwachten Absender sind aktiv.\r\n</div>";
+            else
+                html += "<div class='alert alert-danger'>\r\n" +
+                    "  <strong>Handlungsbedarf!</strong> Diese Absender haben innerhalb der maximalen Inaktivitätszeit keine Meldung abgesetzt:<br/>" +
+                    "  <strong>Meldeweg prüfen!</strong> <br/>" +
+                    "  <ol>" +
+                    "   <li>Störweiterleitung vor Ort eingeschaltet?</li>" +
+                    "   <li>Testmeldung über Visu erzeugen und Empfang prüfen</li>" +
+                    "   <li>Bei E-Mail: Kunden-IT informieren</li>" +
+                    "   <li>Bei SMS: GSM-Modem prüfen. Mobilfunkempfang ok?</li> " +                    
+                    "</ol>\r\n" + 
+                    Html.ConvertDataTable(dt) +
+                    "</div>";
+
+            html += "<hr/><h4>&Uuml;berwachte Absender:</h4>" +
+            Html.ConvertDataTable(
+                Sql.SelectWatchedCustomers(), 
+                new Dictionary<string, string>() { { "Id", "customer" } }
+                );
+
+            await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
+        }
 
         [RestRoute]
         public static async Task Home(IHttpContext context)

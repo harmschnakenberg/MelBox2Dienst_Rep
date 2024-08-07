@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace MelBox2Dienst.Properties {
+namespace MelBox2Email.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
@@ -38,15 +38,6 @@ namespace MelBox2Dienst.Properties {
         public int GsmPoke {
             get {
                 return ((int)(this["GsmPoke"]));
-            }
-        }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("+4916095285304")]
-        public string AdminPhone {
-            get {
-                return ((string)(this["AdminPhone"]));
             }
         }
     }

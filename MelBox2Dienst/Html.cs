@@ -44,6 +44,7 @@ namespace MelBox2Dienst
             sb.Append(NavIcon("Posteingang", "fas fa-arrow-circle-down", "/in"));
             sb.Append(NavIcon("Postausgang", "fas fa-arrow-circle-up", "/out"));
             sb.Append(NavIcon("Gesperrt", "fas fa-bell-slash", "/blocked"));
+            sb.Append(NavIcon("&Uuml;berwacht", "fas fa-binoculars", "/overdue"));
             sb.Append(NavIcon("Bereitschaft", "fas fa-business-time", "/guard"));
             sb.Append(NavIcon("Service", "fas fa-user-clock", "/service"));
             sb.Append(NavIcon("Kunden", "fas fa-user-cog", "/customer"));
@@ -285,7 +286,7 @@ namespace MelBox2Dienst
         }
 
         /// <summary>
-        /// Wandelt DateTable in HTML-Table um. Erstellt Links für die Spalten 'Dictionary.Key' in der Form '/<Dictionary.Value>/<Zellinkalt>''
+        /// Wandelt DateTable in HTML-Table um. Erstellt Links für die Spalten 'Dictionary.Key' in der Form '/<Dictionary.Value>/<Zellinhalt>''
         /// </summary>
         /// <param name="dt"></param>
         /// <param name="links"></param>
@@ -402,7 +403,7 @@ namespace MelBox2Dienst
                 " <span class='input-group-text'>Maximale Inaktivität</span>" +
                 $"<input type='number' name='MaxInactiveHours' class='form-control' value='{dt.Rows[0]["Max_Inaktiv"]}' step='12' min='0'>\r\n" +
                 "<span class='input-group-text'>Stunden</span>" +
-                "<span class='input-group-text text-secondary'>Geht nach dieser Zeit keine Nachricht von diesem Kontakt ein, wird davon ausgegengen, dass die Meldelinie unterbrochen ist.</span>" +
+                "<span class='input-group-text text-secondary'>Max. tolerierte Zeit zwischen Meldungen. 0 = keine Überwachung.</span>" +
                 "</div>\r\n" +
 
                 "<div class='btn-group'>\r\n" +

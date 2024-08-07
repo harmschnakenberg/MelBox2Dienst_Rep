@@ -140,6 +140,15 @@ namespace MelBox2Dienst
         }
 
 
+        internal static DataTable SelectWatchedCustomers()
+        {
+            return Sql.SelectDataTable(@"SELECT * FROM View_WatchedSenders;", null);
+        }
+
+        internal static DataTable SelectOverdueCustomers()
+        {
+            return Sql.SelectDataTable(@"SELECT * FROM View_Overdue;", null);
+        }
 
         /// <summary>
         /// Erzeugt neue Stammdaten eines Kunden

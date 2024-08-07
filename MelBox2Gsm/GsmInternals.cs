@@ -9,8 +9,8 @@ namespace MelBox2Gsm
     internal static partial class Program
     {
         const string ctrlz = "\u001a";
-        public static string SimPin { get; set; } = ConfigurationManager.AppSettings["SimPin"];
-        public static int GsmPokeInterval { get; set; } = 30;
+        public static string SimPin { get; set; } = Properties.Settings.Default.SimPin;
+        public static int GsmPokeInterval { get; set; } = Properties.Settings.Default.GsmPokeInterval;
 
 
         #region GsmModemStatus
