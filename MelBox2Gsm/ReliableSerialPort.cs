@@ -23,6 +23,7 @@ namespace MelBox2Gsm
             if (ports?.Length == 0)
             {
                 Program.Log.Error("Es wurden keine COM-Ports erkannt.");
+                Pipe3.SendGsmStatus(Pipe3.Verb.Error, "Es wurden keine COM-Ports (GSM-Modem) erkannt.");
                 base.Close();
             }
 
@@ -78,6 +79,7 @@ namespace MelBox2Gsm
                 Console.WriteLine(errorText);
                 base.Close();
                 Log.Error(errorText);
+                Pipe3.SendGsmStatus(Pipe3.Verb.Error, errorText);
             }
         }
 
@@ -183,16 +185,17 @@ namespace MelBox2Gsm
 
         private readonly AutoResetEvent _wait = new AutoResetEvent(false);
 
-        public string Ask(string request, int timeout = 3000)
+        public string Ask(string request, int timeout = 3000, bool log = true)
         {
             try
             {
-                if (!base.IsOpen) Open();
+                if (!base.IsOpen) Open(); 
                 if (!base.IsOpen) return recLine;
 
                 base.WriteLine(request);
 #if DEBUG
-                Program.Log.Sent(request);
+                if (log)
+                    Program.Log.Sent(request);
 #endif
                 _wait.Reset();
 
@@ -204,7 +207,8 @@ namespace MelBox2Gsm
                 }
 
 #if DEBUG
-                Program.Log.Recieved(recLine);
+                if (log)
+                    Program.Log.Recieved(recLine);
 #endif
                 string x = recLine;
                 recLine = string.Empty;

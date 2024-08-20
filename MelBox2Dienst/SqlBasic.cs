@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SQLite;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -11,9 +12,16 @@ namespace MelBox2Dienst
 {
     internal static partial class Sql
     {
+        /// <summary>
+        /// Externer Ordner, in den Backups der Datenbank abgelegt werden.
+        /// </summary>
+        public static string BackupDbDirectoryExtern { get; set; } = @"\\192.168.160.8\user\_Leitsystem\Diskette\Melbox2 DBSicherung";
+
         // private static Queue<KeyValuePair<string, Dictionary<string, object>>> queryList = new Queue<KeyValuePair<string, Dictionary<string, object>>>();
 
-        // A queue that is protected by Monitor.
+        /// <summary>
+        /// A queue that is protected by Monitor.
+        /// </summary>
         private static bool lockQuery = false;
 
         /// <summary>
@@ -248,6 +256,82 @@ namespace MelBox2Dienst
             }
 
             return dict;
+        }
+
+        /// <summary>
+        /// Erzeugt wöchentlich ein Backup der kompletten Datenbank. Backup wird im Datenbank-Ordner abgelegt. 
+        /// </summary>
+        internal static void DbBackup()
+        {
+            try
+            {
+                string backupFileName = string.Format("MelBox2_{0}_KW{1:00}.db", DateTime.UtcNow.Year, GetIso8601WeekOfYear(DateTime.UtcNow));
+                string backupPath = Path.Combine(Path.GetDirectoryName(DbPath), backupFileName);
+                if (File.Exists(backupPath) || !File.Exists(DbPath)) return;
+
+                using (var connection = new SQLiteConnection("Data Source=" + DbPath))
+                {
+                    connection.Open();
+
+                    // Create a full backup of the database
+                    // Quelle: https://stackoverflow.com/questions/34760033/how-to-take-sqlite-database-backup-using-c-sharp-or-sqlite-query
+                    //var backup = new SQLiteConnection("Data Source=" + backupPath);
+                    //using (var location = new SQLiteConnection(@"Data Source=C:\activeDb.db; Version=3;"))
+                    //using (var destination = new SQLiteConnection(string.Format(@"Data Source={0}:\backupDb.db; Version=3;", strDestination)))
+                    //{
+                    //    connection.Open();
+                    //    destination.Open();
+                    //    connection.BackupDatabase(destination, "main", "main", -1, null, 0);
+                    //}
+
+                    SQLiteCommand sqlCmd = connection.CreateCommand();
+                    sqlCmd.CommandText = $"VACUUM INTO '{backupPath}'";
+                    sqlCmd.ExecuteNonQuery();
+                }
+
+                #region Backup-Datenbank an einen sicheren Ort kopieren
+                try
+                {
+                    if (Directory.Exists(BackupDbDirectoryExtern) && File.Exists(backupPath))
+                        File.Copy(backupPath, Path.Combine(BackupDbDirectoryExtern, backupFileName));
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Das Backup der Datenbank konnte nicht in den Sicherungsordner '{BackupDbDirectoryExtern}' kopiert werden " + ex);
+                }
+                #endregion
+
+                Log.Info("Backup der Datenbank erstellt unter " + backupPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Sql - Fehler DbBackup() \r\n" + ex.Message + Environment.NewLine + ex.InnerException + Environment.NewLine + ex.GetBaseException().Message);
+#if DEBUG
+                throw new Exception("Sql-Fehler DbBackup()\r\n" + ex.Message);
+#endif
+            }
+        }
+
+        /// <summary>
+        /// Gibt die Kalenderwoche des übergebenen Datums aus. 
+        /// </summary>
+        /// <param name="time">Datum für das die Kalenderwoche bestimmt werden soll</param>
+        /// <returns>Kalenderwoche</returns>
+        private static int GetIso8601WeekOfYear(DateTime time)
+        {
+            // This presumes that weeks start with Monday.
+            // Week 1 is the 1st week of the year with a Thursday in it.
+            // Seriously cheat.  If its Monday, Tuesday or Wednesday, then it'll 
+            // be the same week# as whatever Thursday, Friday or Saturday are,
+            // and we always get those right
+            DayOfWeek day = System.Globalization.CultureInfo.InvariantCulture.Calendar.GetDayOfWeek(time);
+            if (day >= DayOfWeek.Monday && day <= DayOfWeek.Wednesday)
+            {
+                time = time.AddDays(3);
+            }
+
+            // Return the week of our adjusted day
+            return System.Globalization.CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(time, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
         }
 
     }

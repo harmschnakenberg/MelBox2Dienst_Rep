@@ -82,18 +82,26 @@ namespace MelBox2Email
 
         protected override void OnStop()
         {
-
-            // Log out and release resources
-            OutlookNamespace.Logoff();
-            System.Runtime.InteropServices.Marshal.ReleaseComObject(OutlookNamespace);
-            System.Runtime.InteropServices.Marshal.ReleaseComObject(OutlookApp);
-
-            // Ensure resources are properly released even in case of exceptions
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-
+            try
+            {
+                // Log out and release resources
+                OutlookNamespace.Logoff();
+                System.Runtime.InteropServices.Marshal.ReleaseComObject(OutlookNamespace);
+                System.Runtime.InteropServices.Marshal.ReleaseComObject(OutlookApp);
+            }
+            catch
+            {
+                if (Environment.UserInteractive)
+                    Console.WriteLine("Die Verbindung zu Outlook konnte nicht sauber geschlossen werden.");
+            }
+            finally
+            {
+                // Ensure resources are properly released even in case of exceptions
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
         }
 
         public void OnTimer(object sender, ElapsedEventArgs args)

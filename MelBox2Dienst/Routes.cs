@@ -28,7 +28,10 @@ namespace MelBox2Dienst
             #region Keine Übergabeparameter
             if (!context.Request.QueryString.HasKeys())
             {
-                dataTable = Sql.SelectRecieved(100);
+                dataTable = Sql.SelectRecieved(DateTime.Now);
+
+                if (dataTable.Rows.Count == 0) // Wenn heute nichts empfangen wurde
+                    dataTable = Sql.SelectRecieved(100);
 
                 html += "<h4>Empfangene Meldungen</h4>" + 
                         Html.DatePicker("in", DateTime.Now) +
@@ -150,7 +153,8 @@ namespace MelBox2Dienst
             if (!context.Request.QueryString.HasKeys())
             {
                 html += "<h4>Rufbereitschaft</h4>" +
-                        $"<div class='container'>Rufannahme geht zurzeit an <span class='badge bg-secondary'>{Sql.CallRelayPhone}</span></div>";
+                        $"<div class='container'>Rufannahme geht zurzeit an <span class='badge bg-secondary'>{Sql.CallRelayPhone}</span></div>" +
+                        $"<div class='container'>{(Sql.IsBuisinesTimeNow() ? "keine SMS-Weiterleitung während der Geschäftszeiten" : "SMS-Weiterleizung an die Rufbereitschaft aktiv")}</div>";
 
                 dataTable = Sql.SelectAllGuards();
                 html += Html.GuardCalender(dataTable);

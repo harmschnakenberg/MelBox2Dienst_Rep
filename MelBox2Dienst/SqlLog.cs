@@ -75,6 +75,17 @@ namespace MelBox2Dienst
                     LIMIT @Limit", args);
         }
 
+        internal static void CreateNetworkQualityEntry(int quality)
+        {
+            Dictionary<string, object> args = new Dictionary<string, object>
+            {
+                { "@Quality", quality }
+            };
+
+            _ = NonQueryAsync(@"INSERT INTO NetworkQuality (Quality) VALUES (@Quality);  
+                DELETE FROM NetworkQuality WHERE Id < (SELECT MAX(Id) - 1000 FROM NetworkQuality);", args); //max. 1000 Einträge
+        }
+
     }
 
 }

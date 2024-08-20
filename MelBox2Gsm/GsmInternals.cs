@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Data.SqlTypes;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -222,7 +223,10 @@ namespace MelBox2Gsm
             return new Sms(reference, DateTimeOffset.UtcNow, phone, message);
         }
 
-
+        /// <summary>
+        /// Lösche SMS aus dem Speicher des GSM-Modems
+        /// </summary>
+        /// <param name="smsId">Id der Sms im GSM-Modem</param>
         public static void DeleteSms(int smsId)
         {
             _ = Port.Ask($"AT+CMGD={smsId}");
@@ -240,6 +244,12 @@ namespace MelBox2Gsm
         public static CallRelay SetCallRedirection(string phone)
         {
             CallRelay relay = new CallRelay(phone, "unbekannt");
+
+            if (phone is null || phone.Length == 0)
+            {
+                relay.Status = "Es wurde keine Telefonnummer für Sprachanrufe an das GSM-Modem übergeben.";
+                return relay;
+            }
 
             if (NetworkRegistration != 1)
             {
@@ -261,12 +271,15 @@ namespace MelBox2Gsm
             //S.222: Zeitverzögerte Weiterleitung nur bei <reason>=2
             
             //AT+CCFC=<reason>,<mode>[,<number>[,<type>[,<class>[,<time>]]]]
-            _ = Port.Ask($"AT+CCFC=2,3,\"{phone}\",145,1,{RingSecondsBeforeCallForwarding}", 5000);
+            _ = Port.Ask($"AT+CCFC=2,3,\"{phone}\",145,1,{RingSecondsBeforeCallForwarding}", 10000);
+
+            Thread.Sleep(3000);
+           // Log.Warn($"TEST\r\nAT+CCFC=2,3,\"{phone}\",145,1,{RingSecondsBeforeCallForwarding}\r\n-->{answer1}");
 
             #region Prüfe Rufumleitung
-            string answer = Port.Ask("AT+CCFC=2,2", 6000);
+            string answer2 = Port.Ask("AT+CCFC=2,2", 10000);
             //+CCFC: <status> ,  <class> [,  <number> ,  <type> ]
-            MatchCollection mc2 = Regex.Matches(answer, @"\+CCFC: (\d),(\d),""(.+)"",(?:\d+),(\d+)");
+            MatchCollection mc2 = Regex.Matches(answer2, @"\+CCFC: (\d),(\d),""(.+)"",(?:\d+),(\d+)");
 
             if (int.TryParse(mc2[0].Groups[1].Value, out int status) && status == 1)
             {
@@ -327,7 +340,7 @@ namespace MelBox2Gsm
 
             if (m3.Success)                          
                 Pipe3.CallRecieved(m3.Groups[1].Value.Trim('"'));
-            
+
             #endregion
 
             #region SIM-Schubfach
@@ -365,6 +378,15 @@ namespace MelBox2Gsm
             //    NetworkRegistration = currentStatus;
             //    show = true;
             //}
+            #endregion
+
+            #region Fehler Mobilequipment            
+            Match m5 = Regex.Match(recLine, @"\+CM[ES] ERROR: (.+)");
+            if (m5.Success)
+            {
+                var currentError = m5.Groups[1].Value.TrimEnd('\r');            
+                Pipe3.SendGsmStatus(Pipe3.Verb.Error, currentError);
+            }
             #endregion
         }
 
@@ -568,7 +590,7 @@ namespace MelBox2Gsm
         /// </summary>
         internal static void GetSignalQuality()
         {
-            string answer = Port.Ask("AT+CSQ");
+            string answer = Port.Ask("AT+CSQ", 2000, false);
             MatchCollection mc = Regex.Matches(answer, @"\+CSQ: (\d+),(\d+)");
 
             if (mc.Count > 0 && int.TryParse(mc[0].Groups[1].Value, out int quality))
@@ -590,22 +612,19 @@ namespace MelBox2Gsm
             }
         }
 
-
-        
-
         /// <summary>
         /// Fragt ab, ob das Modem im Mobilfunnetz registriert ist.
         /// </summary>
         internal static void GetNetworkRegistration()
         {
-            string answer = Port.Ask("AT+CREG?");
+            string answer = Port.Ask("AT+CREG?", 3000, false);
             MatchCollection mc = Regex.Matches(answer, @"\+CREG: (\d),(\d)");
 
             if (mc.Count == 0) return;
 
             if (int.TryParse(mc[0].Groups[2].Value, out int regStatus))
             {
-                if (NetworkRegistration != regStatus) //Wenn sich die Signalqualität geändert hat
+                if (NetworkRegistration != regStatus) //Wenn sich der Netzwerkstatus geändert hat
                 {
                     if (int.TryParse(mc[0].Groups[1].Value, out int mode))
                     {
@@ -619,22 +638,22 @@ namespace MelBox2Gsm
                     {
                         //MC75 S.191
                         case 0:
-                            regStatusStr = "Mobilfunknetz: nicht registriert.";                            
+                            regStatusStr = "Mobilfunknetz: nicht registriert.";
                             break;
                         case 1:
-                            regStatusStr = "Mobilfunknetz: registriert.";                          
+                            regStatusStr = "Mobilfunknetz: registriert.";
                             break;
                         case 2:
-                            regStatusStr = "Mobilfunknetz: suche Provider.";                         
+                            regStatusStr = "Mobilfunknetz: suche Provider.";
                             break;
                         case 3:
-                            regStatusStr = "Mobilfunknetz: Anmeldung verweigert.";                         
+                            regStatusStr = "Mobilfunknetz: Anmeldung verweigert.";
                             break;
                         case 5:
-                            regStatusStr = "Mobilfunknetz: Roaming aktiv.";                          
+                            regStatusStr = "Mobilfunknetz: Roaming aktiv.";
                             break;
                         default:
-                            regStatusStr = "Mobilfunknetz: Status unbekannt.";                        
+                            regStatusStr = "Mobilfunknetz: Status unbekannt.";
                             break;
                     }
 
@@ -645,6 +664,13 @@ namespace MelBox2Gsm
 
                     Pipe3.SendGsmStatus(nameof(NetworkRegistration), regStatusStr);
                     NetworkRegistration = regStatus;
+
+                    if (regStatus == 1) //erfolgreich im Mobilfunknetz (re-)registriert
+                    {
+                        Thread.Sleep(3000);
+                        SetupGsmModem(); //Modem neu initialisieren
+                        SetCallRedirection(CallRelayPhone); //Rufumleitung neu setzen
+                    }
                 }
             }
         }

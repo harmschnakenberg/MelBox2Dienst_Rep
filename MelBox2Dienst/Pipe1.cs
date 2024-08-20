@@ -12,6 +12,8 @@ namespace MelBox2Dienst
     internal partial class Pipe1
     {
 
+        public static bool IsEmailUsed { get; set; } = false;
+
         public static string GsmSignalQuality { get; private set; } = "-1%";
 
         #region Feste Begriffe für Pipe-Kommunikation
@@ -194,7 +196,9 @@ namespace MelBox2Dienst
                     //keine Antwort erforderlich (GSM-Modem leitet selbständig weiter)
                     return null;
                 case Verb.EmailRecieved:
+#if DEBUG
                     Log.Info($"Email recieved:\r\n{arg}\r\n\r\n---\r\n\r\n");
+#endif
                     Email email = new Email();
                     try
                     {
@@ -243,7 +247,10 @@ namespace MelBox2Dienst
 
             if (gsmStatus.Item1 == "SignalQuality" && Pipe1.GsmSignalQuality != gsmStatus.Item3)
             {
-                Log.Info("GSM-Signalstärke " + gsmStatus.Item3);
+                if (int.TryParse(gsmStatus.Item3.TrimEnd('%'), out int quality))
+                    Sql.CreateNetworkQualityEntry(quality)
+;
+                Log.Info("GSM-Signalstärke " + gsmStatus.Item3);                
                 Pipe1.GsmSignalQuality = gsmStatus.Item3;
             }
         }
@@ -310,12 +317,20 @@ namespace MelBox2Dienst
 
         internal static async void SendEmail(Email email)
         {
+            if (!IsEmailUsed)
+            {
+                Log.Info($"E-Mail senden ist deaktiviert: " + email.ToString());
+                return;
+            }
+#if DEBUG
             Log.Info(email.ToString());
-
+#endif
             KeyValuePair<string, string> pair = await Send(Pipe1.PipeName.Email, Verb.EmailSend, JsonSerializer.Serialize(email));
+#if DEBUG
             Log.Info(
                 "NamedPipe SendEmail(): " + pair.Key + "\t" + pair.Value
                 );
+#endif
         }
 
         /// <summary>
@@ -343,10 +358,8 @@ namespace MelBox2Dienst
 
             callRelay.Phone = phone;
             KeyValuePair<string, string> result = await Send(PipeName.Gsm, Verb.CallRelay, JsonSerializer.Serialize( callRelay ) );
-
-            //string[] args = result?.Split('|');
-            //if (args.Length != 2)
-            //    return callRelay;
+            callRelay.Phone = result.Key;
+            callRelay.Status = result.Value;
 
             if (result.Value?.Length == 0)
                 return callRelay;

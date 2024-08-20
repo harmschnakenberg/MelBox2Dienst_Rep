@@ -22,23 +22,5 @@ namespace MelBox2Email.Properties {
                 return defaultInstance;
             }
         }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("0000")]
-        public string SimPin {
-            get {
-                return ((string)(this["SimPin"]));
-            }
-        }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("30")]
-        public int GsmPoke {
-            get {
-                return ((int)(this["GsmPoke"]));
-            }
-        }
     }
 }

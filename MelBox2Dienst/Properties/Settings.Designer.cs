@@ -25,25 +25,7 @@ namespace MelBox2Dienst.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("0000")]
-        public string SimPin {
-            get {
-                return ((string)(this["SimPin"]));
-            }
-        }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("30")]
-        public int GsmPoke {
-            get {
-                return ((int)(this["GsmPoke"]));
-            }
-        }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("+4916095285304")]
+        [global::System.Configuration.DefaultSettingValueAttribute("+4915142265412")]
         public string AdminPhone {
             get {
                 return ((string)(this["AdminPhone"]));

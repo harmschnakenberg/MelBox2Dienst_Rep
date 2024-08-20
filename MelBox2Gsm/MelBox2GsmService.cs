@@ -86,8 +86,7 @@ namespace MelBox2Gsm
 #endif
             GetNetworkRegistration();
             GetSignalQuality();
-            GetSms();
-        
+            GetSms();        
         }
     }
 }

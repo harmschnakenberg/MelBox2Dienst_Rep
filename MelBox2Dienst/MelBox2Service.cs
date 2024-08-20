@@ -12,6 +12,11 @@ namespace MelBox2Dienst
 {
     public partial class MelBox2Service : ServiceBase
     {
+        readonly System.Timers.Timer timer2 = new System.Timers.Timer
+        {
+            Interval = TimeSpan.FromMinutes(60 - DateTime.Now.Minute).TotalMilliseconds //zur vollen Stunde 
+        };
+
         public MelBox2Service()
         {
             InitializeComponent();
@@ -33,27 +38,28 @@ namespace MelBox2Dienst
             // Set up a timer that triggers every x minute.
             System.Timers.Timer timer = new System.Timers.Timer
             {
-                Interval = 60000 // 300000 // 5 Minuten 
+                Interval = 300000 // 5 Minuten 
             };
             timer.Elapsed += new ElapsedEventHandler(this.OnTimerAsync);
             timer.Start();
 
-            System.Timers.Timer timer2 = new System.Timers.Timer
-            {
-                Interval = 3600000 //1 Stunde
-            };
+
             timer2.Elapsed += new ElapsedEventHandler(this.OnTimer2Async);
             timer2.Start();
-
-            #endregion
+#if DEBUG
+            Log.Info("Nächste interne Prüfung " + DateTime.Now.AddMilliseconds(timer2.Interval));
+#endif
+#endregion
 
             Log.Info($"{ServiceName} V{Assembly.GetExecutingAssembly().GetName().Version} gestartet.");
+
 
             Thread.Sleep(10000);//Warte, weil sonst eine StackOverflow passierne kann.
 
             //initiale Prüfungen
             CheckCallRelayNumber();
             CheckOverdueSenders();
+            Sql.DbBackup();
         }
 
         protected override void OnStop()
@@ -76,17 +82,29 @@ namespace MelBox2Dienst
 #if DEBUG
             Log.Info("Monitoring the System " + DateTime.Now);
 #endif
-            #region Prüfe Sprachweiterleitung: Sprachanrufe werden an den ersten Datensatz der aktuellen Bereitschaft mit gültiger Telefonnummer weitergeleitet
             CheckCallRelayNumber();
-            #endregion
+
         }
 
         private void OnTimer2Async(object sender, ElapsedEventArgs e)
         {
-            #region Prüfe auf Inaktivität: Melde, wenn von Absendern zu lange keien NAchrichten eingegangen sind           
-            CheckOverdueSenders();
-            SendDailyNotification();
+            #region Timer neu setzen
+            timer2.Stop();
+            timer2.Interval = TimeSpan.FromMinutes(60 - DateTime.Now.Minute).TotalMilliseconds; //zur vollen Stunde 
+            timer2.Start();
             #endregion
+
+            //Prüfe auf Inaktivität: Melde, wenn von Absendern zu lange keien NAchrichten eingegangen sind           
+            CheckOverdueSenders();
+            
+            // Prüfe Sprachweiterleitung: Sprachanrufe werden an den ersten Datensatz der aktuellen Bereitschaft mit gültiger Telefonnummer weitergeleitet
+            CheckCallRelayNumber();
+            
+            //Sende tägliche Kontroll-SMS an den MelBox-Admin
+            SendDailyNotification();
+
+            //Prüfe, ob eine Datenbank-Backup abgelegt wurde und führ das Backup ggf. aus
+            Sql.DbBackup();
         }
 
 
@@ -110,7 +128,7 @@ namespace MelBox2Dienst
                     CallRelay relay;
                     relay = await Pipe1.RelayCall(service.Phone);
                     Sql.CallRelayPhone = relay.Phone;
-                    Log.Info($"Relay phone: {relay.Phone}: {relay.Status}");
+                    Log.Info($"Rufweiterleitung: {relay.Phone}: {relay.Status}");
                 }
                 break;
             }
@@ -141,8 +159,8 @@ namespace MelBox2Dienst
                     string subject = $"Inaktivität >{name}<";
                     string body = $" Inaktivität >{name}< {contact}. Meldung fällig seit >{due}<. \r\nMelsys bzw. Segno vor Ort prüfen.\r\n\r\n";
 
-                    Email emailOut = new Email(Sql.From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), null, subject, body);
-                    Pipe1.SendEmail(emailOut);
+                    Email overdueEmailOut = new Email(Sql.From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), null, subject, body);
+                    Pipe1.SendEmail(overdueEmailOut);
                     Thread.Sleep(5000);
                 }
                 #endregion

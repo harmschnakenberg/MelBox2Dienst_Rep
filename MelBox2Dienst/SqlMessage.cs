@@ -11,10 +11,132 @@ namespace MelBox2Dienst
 {
     internal static partial class Sql
     {
-        public static string From { get; set; } = "SMSZentrale@Kreutztraeger.de"; 
+        public static string From { get; set; } = "SMSZentrale@Kreutztraeger.de";
+
+        #region Nachrichten Weiterleitung
+
+        /// <summary>
+        /// Archiviert die emfangene Sms in DB, sendet sie an die ständigen E-Mail-Empfänger (Service), prüft, 
+        /// ob sie an die Bereitschaft gesendet werden muss und versendet sie ggf. als SMS(en)
+        /// </summary>
+        /// <param name="sms">eingegangene Sms</param>
+        /// <returns>erfogreich abgelegt und weitergeleitet</returns>
+        internal static bool MessageRecieveAndRelay(Sms sms)
+        {
+            try
+            {
+                #region Soll diese SMS weitergeleitet werden?
+                uint messageId = Sql.CreateRecievedMessage(sms);
+                bool isBuisinessTime = IsBuisinesTimeNow();
+                bool isBlocked = Sql.IsMessageBlocked(messageId);
+                bool isAlifeMessage = IsAlifeMessage(sms.Content);
+                bool isTestSms = IsSmsTest(sms);
+                #endregion
+
+                #region Finde heraus, wer Bereitschaft hat
+                List<Service> permanentGuards = Sql.SelectPermamanentGuards();
+                List<Service> currentGuards = Sql.SelectCurrentGuards();
+                #endregion
+
+                #region Email versenden
+                string body = $"SMS Absender>\t{sms.Phone}<\r\n" +
+                    $"SMS Text\t>{sms.Content}<\r\n" +
+                    $"SMS Sendezeit\t>{sms.Time}<\r\n\r\n";
+
+                if (isBlocked)
+                    body += "Keine Weiterleitung an Bereitschaftshandy da SMS gesperrt.\r\n";
+                else if (isAlifeMessage)
+                    body += "Keine Weiterleitung der Routinemeldung an Bereitschaftshandy.\r\n";
+                else if (isBuisinessTime)
+                    body += "Keine Weiterleitung an Bereitschaftshandy während der Geschäftszeit.\r\n";
+                else if (isTestSms)
+                    body += "Test der SMS-Zentrale.\r\n";
+
+                string subject = sms.Content.Length > 32 ? sms.Content.Substring(0, 32) : sms.Content;
+
+                Email newSmsRecievedmail = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), null, subject, body);
+                Pipe1.SendEmail(newSmsRecievedmail);
+
+                #endregion
+
+                #region SMS versenden                
+                if (!(isBlocked || isBuisinessTime || isAlifeMessage || isTestSms))
+                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).Where(y => y?.Length > 3).ToList(), sms, messageId);
+                #endregion
+
+                return messageId > 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Fehler MessageRecieveAndRelay() {ex}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Archiviert die emfangene Email in DB, sendet sie an die ständigen E-Mail-EMpfänger (Service), prüft, ob sie an die Bereitschaft gesendet werden muss und versendet sie ggf. als SMS(en)
+        /// </summary>
+        /// <param name="emailIn"></param>
+        /// <returns>erfogreich abgelegt und weitergeleitet</returns>
+        internal static bool MessageRecieveAndRelay(Email emailIn)
+        {
+            if (emailIn.From == emailIn.To.First()) //Sollte im Normalbetrieb nicht vorkommen
+                return false;
+
+            if (emailIn.Body?.Length == 0)
+                return false;
+
+            //if (emailIn.Body.Length > 250) //Lange Emails abschneiden(?)
+            //    emailIn.Body = emailIn.Body.Substring(0, 250) + "[...]";
+
+            try
+            {
+                uint messageId = Sql.CreateRecievedMessage(emailIn);
+                bool isBlocked = Sql.IsMessageBlocked(messageId);
+
+                #region Finde heraus, wer Bereitschaft hat
+                List<Service> permanentGuards = Sql.SelectPermamanentGuards();
+                List<Service> currentGuards = Sql.SelectCurrentGuards();
+
+                //if (!isBlocked) //wieder raus genommen
+                //    permanentGuards.AddRange(currentGuards); //Wenn Bereitschaft eine E-Mail-Adresse angegeben hat, auch dahin schicken
+                #endregion
+
+                #region Email versenden
+                string body = $"Email Absender\t>{emailIn.From}<\r\n" +
+                    $"Text\t>{emailIn.Body.Replace("\r\n", " ")}<\r\n\r\n";
+
+                if (isBlocked)
+                    body += "Keine Weiterleitung an Bereitschaftshandy da gesperrt.\r\n";
+
+                string subject = emailIn.Body.Length > 32 ? emailIn.Body.Substring(0, 32) : emailIn.Body;
+
+                Email newEmailRecievedEmailOut = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), null, subject, body);
+                Pipe1.SendEmail(newEmailRecievedEmailOut);
+
+                #endregion
+
+                #region SMS versenden
+                Sms smsOut = new Sms(-1, DateTime.Now, "", RemoveUmlauts(emailIn.Body).Substring(0, Math.Min(emailIn.Body.Length, 160)));
+
+                if (!isBlocked)
+                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).Where(y => y?.Length > 3).ToList(), smsOut, messageId);
+                #endregion
+
+                return messageId > 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Fehler MessageRecieveAndRelay() {ex}");
+                return false;
+            }
+        }
+
+        #endregion
 
 
-        #region Empfang von Nachrichten
+        #region Empfangene Nachrichten
+
         /// <summary>
         /// Liste empfangene Nachrichten eines bestimmten Datums
         /// </summary>
@@ -152,120 +274,6 @@ namespace MelBox2Dienst
         }
 
         /// <summary>
-        /// Archiviert die emfangene Sms in DB, sendet sie an die ständigen E-Mail-Empfänger (Service), prüft, 
-        /// ob sie an die Bereitschaft gesendet werden muss und versendet sie ggf. als SMS(en)
-        /// </summary>
-        /// <param name="sms">eingegangene Sms</param>
-        /// <returns>erfogreich abgelegt und weitergeleitet</returns>
-        internal static bool MessageRecieveAndRelay(Sms sms)
-        {
-            try
-            {
-                #region Soll diese SMS weitergeleitet werden?
-                uint messageId = Sql.CreateRecievedMessage(sms);
-                bool isBuisinessTime = IsBuisinesTimeNow();
-                bool isBlocked = Sql.IsMessageBlocked(messageId);
-                bool isAlifeMessage = IsAlifeMessage(sms.Content);
-                #endregion
-
-                #region Finde heraus, wer Bereitschaft hat
-                List<Service> permanentGuards = Sql.SelectPermamanentGuards();
-                List<Service> currentGuards = Sql.SelectCurrentGuards();
-                #endregion
-
-                #region Email versenden
-                string body = $"SMS Absender>\t{sms.Phone}<\r\n" +
-                    $"SMS Text\t>{sms.Content}<\r\n" +
-                    $"SMS Sendezeit\t>{sms.Time}<\r\n\r\n";
-
-                if (isBlocked)
-                    body += "Keine Weiterleitung an Bereitschaftshandy da SMS gesperrt.\r\n";
-                else if(isAlifeMessage)
-                    body += "Keine Weiterleitung der Routinemeldung an Bereitschaftshandy.\r\n";
-                else if (isBuisinessTime)
-                    body += "Keine Weiterleitung an Bereitschaftshandy während der Geschäftszeit.\r\n";
-
-                string subject = sms.Content.Length > 32 ? sms.Content.Substring(0, 32) : sms.Content;
-
-                Email email = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), null, subject, body);
-                Pipe1.SendEmail(email);
-
-                #endregion
-
-                #region SMS versenden                
-                if (!(isBlocked || isBuisinessTime || isAlifeMessage))                    
-                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).Where(y => y?.Length > 3).ToList(), sms, messageId);
-                #endregion
-
-                return messageId > 0;
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Fehler MessageRecieveAndRelay() {ex}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Archiviert die emfangene Email in DB, sendet sie an die ständigen E-Mail-EMpfänger (Service), prüft, ob sie an die Bereitschaft gesendet werden muss und versendet sie ggf. als SMS(en)
-        /// </summary>
-        /// <param name="emailIn"></param>
-        /// <returns>erfogreich abgelegt und weitergeleitet</returns>
-        internal static bool MessageRecieveAndRelay(Email emailIn)
-        {
-            if (emailIn.From == emailIn.To.First()) //Sollte im Normalbetrieb nicht vorkommen
-                return false;
-
-            if (emailIn.Body?.Length == 0)
-                return false;
-
-            //if (emailIn.Body.Length > 250) //Lange Emails abschneiden(?)
-            //    emailIn.Body = emailIn.Body.Substring(0, 250) + "[...]";
-
-            try
-            {
-                uint messageId = Sql.CreateRecievedMessage(emailIn);
-                bool isBlocked = Sql.IsMessageBlocked(messageId);
-
-                #region Finde heraus, wer Bereitschaft hat
-                List<Service> permanentGuards = Sql.SelectPermamanentGuards();
-                List<Service> currentGuards = Sql.SelectCurrentGuards();
-
-                //if (!isBlocked) //wieder raus genommen
-                //    permanentGuards.AddRange(currentGuards); //Wenn Bereitschaft eine E-Mail-Adresse angegeben hat, auch dahin schicken
-                #endregion
-
-                #region Email versenden
-                string body = $"Email Absender\t>{emailIn.From}<\r\n" +
-                    $"Text\t>{emailIn.Body.Replace("\r\n", " ")}<\r\n\r\n";
-
-                if (isBlocked)
-                    body += "Keine Weiterleitung an Bereitschaftshandy da gesperrt.\r\n";
-
-                string subject = emailIn.Body.Length > 32 ? emailIn.Body.Substring(0, 32) : emailIn.Body;
-
-                Email emailOut = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), null, subject, body);
-                Pipe1.SendEmail(emailOut);
-
-                #endregion
-
-                #region SMS versenden
-                Sms smsOut = new Sms(-1, DateTime.Now, "", RemoveUmlauts(emailIn.Body).Substring(0, Math.Min(emailIn.Body.Length, 160)));
-
-                if (!isBlocked)                   
-                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).Where(y => y?.Length > 3).ToList(), smsOut, messageId);
-                #endregion
-
-                return messageId > 0;
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Fehler MessageRecieveAndRelay() {ex}");
-                return false;
-            }
-        }
-
-        /// <summary>
         /// Prüft, ob es sich um eine Routinemeldung handelt.
         /// </summary>
         /// <param name="message">Inhalt der eingegangenen Nachricht</param>
@@ -279,6 +287,11 @@ namespace MelBox2Dienst
             return false;
         }
 
+        /// <summary>
+        /// Ersetzt Umlaute und ß durch ASCII-Zeichen
+        /// </summary>
+        /// <param name="orig"></param>
+        /// <returns></returns>
         private static string RemoveUmlauts(string orig)
         {
             //Umlaute durch ASCII-Zeichen ersetzen
@@ -318,7 +331,22 @@ namespace MelBox2Dienst
             return isMessageBlocked > 0;
         }
 
+        /// <summary>
+        /// Prüft, ob die Nachricht 'SmsTestTrigger' z.B 'SmsAbruf' enthält und sendet die Nachricht zurück an den Sender. 
+        /// </summary>
+        /// <param name="sms">Eingegangene SMS</param>
+        /// <returns>true = SMS enthält das in 'SmsTestTrigger' definierten Triggerwort</returns>
+        private static bool IsSmsTest(Sms sms, string SmsTestTrigger = "SmsAbruf")
+        {
+            if (!sms.Content.ToLower().StartsWith(SmsTestTrigger.ToLower())) return false;
 
+            Service service = Sql.GetService(sms.Phone);
+
+            Log.Info($"SMS-Abruf von [{sms.Index}] >{sms.Phone}<, >{service.Name}<");
+            Pipe1.SendSmsAsync(sms);
+              
+            return true; //Dies war 'SMSAbruf'
+        }
         #endregion
 
 
@@ -542,6 +570,8 @@ namespace MelBox2Dienst
                 FROM Message WHERE Id = @Id;", args);
         }
 
+
+
         internal static uint SelectMessageIdByContent(string message) //ungetestet
         {
             Dictionary<string, object> args = new Dictionary<string, object>
@@ -659,7 +689,8 @@ namespace MelBox2Dienst
         internal static uint CreateSent(uint messageId, Sms sms)
         {
             #region Empfänger protokollieren und identifizieren
-            uint serviceId = Sql.GetServiceId(sms);
+            Service service = Sql.GetService(sms.Phone);
+            //uint serviceId = Sql.GetServiceId(sms);
             if (messageId == 0)
                 messageId = Sql.SelectMessageIdByContent(sms.Content);
             #endregion
@@ -668,7 +699,7 @@ namespace MelBox2Dienst
             Dictionary<string, object> args = new Dictionary<string, object>
                 {
                     { "@Time", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")},
-                    { "@ToId", serviceId},
+                    { "@ToId", service.Id},
                     { "@ContentId", messageId },
                     { "@Reference", sms.Index }
                 };
@@ -684,13 +715,14 @@ namespace MelBox2Dienst
 
         internal static uint CreateSent(string incomingCallFromPhone, string relayCallToPhone)
         {
-            uint serviceId = Sql.GetServiceId(relayCallToPhone);
+            //uint serviceId = Sql.GetServiceId(relayCallToPhone);
+            Service service = Sql.GetService(relayCallToPhone);
             uint messageId = SelectMessageIdByContent($"Sprachanruf von '{incomingCallFromPhone}' weitergeleitet an '{relayCallToPhone}'");
 
             Dictionary<string, object> args = new Dictionary<string, object>
                 {
                     { "@Time", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")},
-                    { "@ToId", serviceId},
+                    { "@ToId", service.Id},
                     { "@ContentId", messageId }
                 };
 
@@ -722,8 +754,6 @@ namespace MelBox2Dienst
         }
 
         #endregion
-
-
 
     }
 

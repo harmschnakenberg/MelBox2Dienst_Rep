@@ -177,6 +177,11 @@ namespace MelBox2Dienst
                 ) VALUES ( 
                 @Name, @Phone, @Email, @Keyword, @MaxInactiveHours 
                 );", args);
+
+            Log.Info($"Neuer Kunde erstellt:\r\n" +
+                $"Name: {args["@Name"]}\r\n" +
+                $"Telefon: {args["@Phone"]}\r\n" +
+                $"E-Mail: {args["@Email"]}\r\n");
         }
 
         /// <summary>
@@ -209,6 +214,12 @@ namespace MelBox2Dienst
                 KeyWord = @KeyWord,
                 MaxInactiveHours = @MaxInactiveHours
                 WHERE Id = @Id;", args);
+
+            Log.Info($"Kunde geändert:\r\n" +
+                $"Name: {args["@Name"]}\r\n" +
+                $"Telefon: {args["@Phone"]}\r\n" +
+                $"E-Mail: {args["@Email"]}\r\n" +
+                $"Max. Inaktivität: {args["@MaxInactiveHours"]} Std.\r\n");
         }
                
         /// <summary>
@@ -222,8 +233,11 @@ namespace MelBox2Dienst
                 { "@Id", form["Id"] }
             };
 
+            var customerName = Sql.SelectValue(@"SELECT Name FROM Customer WHERE Id = @Id;", args);
+            Log.Info($"Kunde [{form["Id"]}] '{customerName}' wurde gelöscht.");
+
             _ = Sql.NonQueryAsync(
-                @"DELETE FROM Customer WHERE Id = @Id;", args);
+                @"DELETE FROM Customer WHERE Id = @Id;", args);            
         }
 
     }

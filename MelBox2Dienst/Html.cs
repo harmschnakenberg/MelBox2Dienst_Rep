@@ -60,6 +60,7 @@ namespace MelBox2Dienst
             //sb.AppendLine(" <button class='btn btn-primary' type='button'>Suche</button>");
             // "  <input class=\"form-check-input\" type=\"checkbox\" id=\"mySwitch\" name=\"darkmode\" value=\"yes\" checked>\r\n  <label class=\"form-check-label\" for=\"mySwitch\">Dark Mode</label>" +
             //sb.AppendLine("</form>");
+            sb.AppendLine(LoginForm);
             sb.AppendLine("</div>");
             sb.AppendLine("</div>");
             sb.AppendLine("</nav>");
@@ -196,6 +197,54 @@ namespace MelBox2Dienst
                                     <polygon points='20,17 37,0 37,35' style='fill:darkcyan;' />
                                     Sorry, your browser does not support inline SVG.
                                   </svg>";
+
+
+        const string LoginForm = @" 
+                <!-- Button to Open the Modal -->
+                <button type='button' class='btn btn-primary' data-bs-toggle='modal' data-bs-target='#loginModal'>
+                  <i class='fas fa-key'></i>
+                </button>
+
+                <!-- The Modal -->
+                <div class='modal' id='loginModal'>
+                  <div class='modal-dialog'>
+                    <div class='modal-content'>
+                    <form action='/login' method='post' class='was-validated'>
+                      <!-- Modal Header -->
+                      <div class='modal-header'>
+                        <h4 class='modal-title'>Login</h4>
+                        <button type='button' class='btn-close' data-bs-dismiss='modal'></button>
+                      </div>
+
+                      <!-- Modal body -->
+                      <div class='modal-body'>
+                            
+                              <div class='mb-3 mt-3'>
+                                <label for='uname' class='form-label'>Benutzername:</label>
+                                <input type='text' class='form-control' id='uname' placeholder='Benutzername' name='uname' required>
+                            
+                                <div class='invalid-feedback'>Eintrag erforderlich</div>
+                              </div>
+                              <div class='mb-3'>
+                                <label for='pwd' class='form-label'>Passwort:</label>
+                                <input type='password' class='form-control' id='pwd' placeholder='Passwort' name='pswd' required>
+                               
+                                <div class='invalid-feedback'>Eintrag erforderlich</div>
+                              </div>
+                        
+                      </div>
+
+                          <!-- Modal footer -->
+                          <div class='modal-footer'>
+                            <button type='submit' class='btn btn-primary'>Login</button>
+                            <button type='submit' class='btn btn-info' formaction='/register'>Registrieren</button>
+                            <button type='button' class='btn btn-danger' data-bs-dismiss='modal'>Schließen</button>
+                          </div>
+                        </form> 
+                        </div>
+                      </div>
+                    </div>";
+
 
         public static string DatePicker(string route, DateTime date)
         {

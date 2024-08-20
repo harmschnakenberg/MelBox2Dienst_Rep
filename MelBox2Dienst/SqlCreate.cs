@@ -93,6 +93,7 @@ namespace MelBox2Dienst
                 query = @"CREATE TABLE IF NOT EXISTS Service (
                         Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
                         Name TEXT NOT NULL UNIQUE, 
+                        Password TEXT,
                         Phone TEXT, 
                         Email TEXT,
                         RecAllMails INTEGER DEFAULT 0,
@@ -166,6 +167,12 @@ namespace MelBox2Dienst
                         ); ";
                 _ = NonQueryAsync(query, null);
 
+                query = @"CREATE TABLE IF NOT EXISTS NetworkQuality (
+	                    Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+	                    Time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	                    Quality INTEGER NOT NULL
+                        );";
+                _ = NonQueryAsync(query, null);
                 #endregion
 
                 #region Views erstellen
@@ -209,6 +216,7 @@ namespace MelBox2Dienst
                           WHEN 6 THEN SatEnd 
                          END AS BlockedNow
                          FROM BlockPolicy; ";
+                NonQueryAsync(query, null);
 
                 query = @"CREATE VIEW View_AllShiftDays AS 
                         SELECT d AS Tag, COUNT(d) AS Belegung, ToId

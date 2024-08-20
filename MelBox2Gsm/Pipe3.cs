@@ -116,7 +116,7 @@ namespace MelBox2Gsm
                     {
                         await writer.WriteLineAsync($"{verb}|{arg}");
                         await writer.FlushAsync();
-                        string result = await reader.ReadLineAsync();
+                        string result = await reader?.ReadLineAsync();
                         string[] args = result.Split('|');       
                         return new KeyValuePair<string, string>(args[0], args[1]);
                     }
@@ -177,10 +177,10 @@ namespace MelBox2Gsm
 
                         if (callRelay.Phone != CallRelayPhone)
                         {
-                            if (CallRelayPhone is null)
-                                callRelay.Status = $"Rufumleitung eingerichtet auf '{callRelay.Phone}'";
-                            else
-                                callRelay.Status = $"Rufumleitung umgeschaltet von '{CallRelayPhone}' auf '{callRelay.Phone}'";
+                            //if (CallRelayPhone is null)
+                            //    callRelay.Status += $" Rufumleitung eingerichtet auf '{callRelay.Phone}'";
+                            //else
+                            //    callRelay.Status += $" Rufumleitung umgeschaltet von '{CallRelayPhone}' auf '{callRelay.Phone}'";
 
                             Log.Info(callRelay.Status);
                             CallRelayPhone = callRelay.Phone;

@@ -100,6 +100,30 @@ namespace MelBox2Dienst
 
         #region Mitarbeiterstammdaten
 
+        [RestRoute("Post", "/login")]
+        public static async Task Login(IHttpContext context)
+        {
+            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
+            string name = formContent["uname"].Replace("<", "&lt;").Replace(">", "&gt;"); //HTML unschädlich machen
+            string password = formContent["pswd"].Replace("<", "&lt;").Replace(">", "&gt;");
+            Service logedIn = Sql.CheckCredentials(name, password);
+
+
+            await context.Response.SendResponseAsync(Html.Sceleton($"TEST Login: {logedIn.Name}, ''")).ConfigureAwait(false);
+        }
+
+        [RestRoute("Post", "/register")]
+        public static async Task Register(IHttpContext context)
+        {
+            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
+            string name = formContent["uname"].Replace("<", "&lt;").Replace(">", "&gt;"); //HTML unschädlich machen
+            string password = formContent["pswd"].Replace("<", "&lt;").Replace(">", "&gt;");
+            Service logedIn = Sql.CheckCredentials(name, password);
+
+
+            await context.Response.SendResponseAsync(Html.Sceleton($"TEST Login: {logedIn.Name}, ''")).ConfigureAwait(false);
+        }
+
         /// <summary>
         /// Zeit Servicestammdaten an
         /// </summary>
@@ -185,6 +209,6 @@ namespace MelBox2Dienst
 
 
         #endregion
-    
+
     }
 }

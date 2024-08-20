@@ -2,14 +2,8 @@
 <SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="MelBox2Dienst.Properties" GeneratedClassName="Settings">
   <Profiles />
   <Settings>
-    <Setting Name="SimPin" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">0000</Value>
-    </Setting>
-    <Setting Name="GsmPoke" Type="System.Int32" Scope="Application">
-      <Value Profile="(Default)">30</Value>
-    </Setting>
     <Setting Name="AdminPhone" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">+4916095285304</Value>
+      <Value Profile="(Default)">+4915142265412</Value>
     </Setting>
   </Settings>
 </SettingsFile>
