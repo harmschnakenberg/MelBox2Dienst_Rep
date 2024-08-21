@@ -11,7 +11,9 @@ namespace MelBox2Dienst
 {
     internal partial class Pipe1
     {
-
+        /// <summary>
+        /// Generelle Freigabe zur Verwendung von E-Mail-Kommunikation
+        /// </summary>
         public static bool IsEmailUsed { get; set; } = false;
 
         public static string GsmSignalQuality { get; private set; } = "-1%";
@@ -35,6 +37,7 @@ namespace MelBox2Dienst
             public const string CallRelay = "CallRelay";
             public const string CallRecieved = "CallRecieved";
             public const string GsmStatus = "GsmStatus";
+            public const string GsmReinit = "GsmReinit";
             public const string Error = "ERROR";
         }
         #endregion
@@ -63,7 +66,7 @@ namespace MelBox2Dienst
 #if DEBUG
                             Log.Info($"Anfrage an {pipeName} > {line}");
 #endif
-                            if (line == null)
+                            if (line == null || line.Length < 2)
                                 break;
 
                             string answer = ParseQuery(line);
@@ -209,9 +212,11 @@ namespace MelBox2Dienst
                         Log.Error($"ParseQuery() mit {verb}: Fehler:\r\n" + ex);
                     }
 
-                    if (Sql.MessageRecieveAndRelay(email))
+                    if (!IsEmailUsed)
+                        Sql.CreateRecievedMessage(email); //nur Empfang protollieren
+                    else if (Sql.MessageRecieveAndRelay(email))
                         return line; //Erfolg: sende die Anfrage ungverändert zurück
-                    else
+                    
                         return Answer(Verb.Error, arg);
                 case Verb.GsmStatus:                    
                     UpdateGsmStatus(JsonSerializer.Deserialize<Tuple<string, DateTime, string>>(arg));
@@ -286,7 +291,7 @@ namespace MelBox2Dienst
                     if (smsAnswer.Index > 0) //-> Die SMS wurde versand und im GSM-Modem auf einem Index gespeichert.
                         Sql.CreateSent(messageId, smsAnswer);
                     else
-                        Log.Error($"Sms-Versand an '{phone}' konnte nicht bestätigt werden; '{sms.Content}'");
+                        Log.Error($"Sms-Versand an '{phone}' konnte nicht bestätigt werden; '{sms.Content}'\r\nMessageId [{messageId}]");
                     #endregion
                 }
             }
@@ -343,6 +348,10 @@ namespace MelBox2Dienst
             return Regex.Match(number, @"(\+[0-9]+)").Success;
         }
 
+        internal static async void GsmReinit()
+        {
+            await Send(Pipe1.PipeName.Gsm, Verb.GsmReinit, string.Empty);
+        }
 
         /// <summary>
         /// Veranlasst die Rufumleitung von Sprachanrufen an die Nummer 'phone'

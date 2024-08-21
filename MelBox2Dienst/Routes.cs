@@ -231,9 +231,80 @@ namespace MelBox2Dienst
             }
 
             html += "</table>";
+            
+            //html += @"<a href='gsm/reinit' class='btn btn-outline-secondary'>GSM-Modem reinitialisieren</a>";
+
+            html += @"<form action='gsm/testsms' method='post'><div class='input-group mb-3'>     
+                      <a href='gsm/reinit' class='btn btn-outline-secondary'>GSM-Modem reinitialisieren</a>
+                      <input type='tel' class='form-control' name='phone' placeholder='+491601234567 (Mobilnummer)' pattern='\+[0-9]{10,}' required>
+                      <button class='btn btn-outline-primary' type='submit'>SMS Senden</button>
+                    </div></form>";
+
+            html += "<script src='https://www.gstatic.com/charts/loader.js'></script>" +
+                "<div id='myChart' style='width:100%;height:400px;'></div>" +
+                "<script>\r\n" +
+                "google.charts.load('current',{packages:['corechart']});\r\n" +
+                "google.charts.setOnLoadCallback(drawChart);\r\n" +
+                "\r\n" +
+                "function drawChart() {\r\n" +
+                "\r\n" +
+                "// Set Data\r\n" +
+                "const data = google.visualization.arrayToDataTable([\r\n" +
+
+                Sql.SelectNetworkQualityToArray() +
+          
+                "]);\r\n" +
+                "\r\n" +
+                @"// Set Options
+                const options = {
+                  backgroundColor: '#212529',                
+                  chartArea: {
+                      backgroundColor: 'transparent',
+                  },
+                  title: 'Mobilfunksignal',
+                  subtitle: 'Mit der Maus ziehen zum Zoomen, Rechtsklick zurücksetzen',                  
+                  titleTextStyle: { color: '#FFF' },
+                  legend: { textStyle: { color: '#FFF' }},               
+                  explorer: { actions: ['dragToZoom', 'rightClickToReset'] },
+                  hAxis: { title: 'Zeit', format: 'HH:mm', textStyle:{color: '#AAA'}, titleTextStyle:{color: '#FFF'} },
+                  vAxis: { title: 'Mobilfunksignal', textStyle:{color: '#AAA'}, titleTextStyle:{color: '#FFF'} },
+                  baselineColor: 'white',
+                  legend: 'none'
+                }
+
+                const chart = new google.visualization.LineChart(document.getElementById('myChart'));
+                chart.draw(data, options);
+                
+                }" +
+                "</script>";
+
+
 
             await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
         }
+
+        [RestRoute("Get", "/gsm/reinit")]
+        public static async Task GsmReinit(IHttpContext context)
+        {
+            Pipe1.GsmReinit();
+
+            await GsmRoute(context);
+        }
+
+        [RestRoute("Post", "/gsm/testsms")]
+        public async Task GsmTestSms(IHttpContext context)
+        {
+            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
+            string phone = formContent["phone"];
+            
+            Sms smsTest = new Sms(-1, DateTime.UtcNow, phone, "Test-SMS von MelBox2");
+            Console.WriteLine($"Sende Test-SMS an '{phone}'");
+            Pipe1.SendSmsAsync(smsTest);
+
+            await GsmRoute(context);
+        }
+
+
 
         [RestRoute("Get", "/overdue")]
         public static async Task OverdueRoute(IHttpContext context)

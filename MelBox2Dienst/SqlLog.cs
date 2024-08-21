@@ -57,7 +57,6 @@ namespace MelBox2Dienst
                     ORDER BY Time DESC", args);
         }
 
-
         internal static DataTable SelectLog(uint limit)
         {
             Dictionary<string, object> args = new Dictionary<string, object>
@@ -75,6 +74,11 @@ namespace MelBox2Dienst
                     LIMIT @Limit", args);
         }
 
+        #region Mobilfunknetzqualoität dokumentieren
+        /// <summary>
+        /// Protokolliert die Qualität des Mobilfunkempfangs
+        /// </summary>
+        /// <param name="quality"></param>
         internal static void CreateNetworkQualityEntry(int quality)
         {
             Dictionary<string, object> args = new Dictionary<string, object>
@@ -86,6 +90,26 @@ namespace MelBox2Dienst
                 DELETE FROM NetworkQuality WHERE Id < (SELECT MAX(Id) - 1000 FROM NetworkQuality);", args); //max. 1000 Einträge
         }
 
+        /// <summary>
+        /// Erstellt einen String zur Darstellung der Mobilfunksignalqualität in einem Diagramm
+        /// siehe Google Charts https://developers.google.com/chart?hl=de
+        /// </summary>
+        /// <returns></returns>
+        internal static string SelectNetworkQualityToArray()
+        {
+            DataTable dt = Sql.SelectDataTable(@"SELECT datetime(Time, 'localtime')||'' AS Time, Quality FROM NetworkQuality", null);
+            StringBuilder sb = new StringBuilder();
+            sb.Append("['Zeit', 'Signal']");
+
+            foreach (DataRow row in dt.Rows)
+            {                
+                _ = DateTime.TryParse(row[0].ToString(), out DateTime d);
+                sb.Append($",[new Date({d.Year},{d.Month},{d.Day},{d.Hour},{d.Minute},{d.Second}),{row[1]}]");
+            }
+
+            return sb.ToString();
+        }
+        #endregion
     }
 
 }

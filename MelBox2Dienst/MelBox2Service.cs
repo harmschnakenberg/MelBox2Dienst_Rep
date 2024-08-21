@@ -176,7 +176,7 @@ namespace MelBox2Dienst
             if (DateTime.Now.Hour != hour)
                 return;
 
-            string adminPhone = Properties.Settings.Default.AdminPhone;
+            string adminPhone = Program.MelBox2AdminPhone;
             Sms sms = new Sms(0, DateTime.Now, adminPhone, "SMS-Zentrale Routinemeldung.");
             Pipe1.SendSmsAsync(sms);
         }

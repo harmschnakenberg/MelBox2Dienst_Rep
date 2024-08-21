@@ -71,13 +71,24 @@ namespace MelBox2Gsm
            // Pipe3.RecievedSms(new Sms(new Random().Next(0, 255), DateTime.UtcNow, "+4916095285304", "Simulierte SMS"));
         }
 
+        internal static void SimulateSmsSend(string phone = "+4916095285304", string message = "SMS versendet von Console.")
+        {
+            Sms sms = SendSms(phone, message);
+
+            Console.WriteLine($"SMS versendet\r\n" +
+                $"Index: {sms.Index}\r\n" +
+                $"Zeit: {sms.Time}\r\n" +
+                $"An: {sms.Phone}\r\n" +
+                $"Text: {sms.Content}\r\n");
+        }
+
         /// <summary>
         /// Ruft dem SMS-Speicher aus dem GSM-Modem ab.
         /// </summary>
         /// <param name="filter">ALL, REC READ, REAC UNREAD</param>
         public static void GetSms(string filter = "ALL")
         {
-            string answer = Port.Ask($"AT+CMGL=\"{filter}\"");
+            string answer = Port.Ask($"AT+CMGL=\"{filter}\"", 5000, false);
 
             #region Neue SMSen
 
@@ -209,8 +220,8 @@ namespace MelBox2Gsm
             Log.Warn($"Sende SMS an '{phone}': {message}");
 
             _ = Port.Ask($"AT+CMGS=\"{phone}\"\r");
-            Thread.Sleep(1000); //Test
-            string answer = Port.Ask(message + ctrlz, 10000);
+            Thread.Sleep(300); //Test
+            string answer = Port.Ask(message + ctrlz, 10000); //braucht länger als 4 Sek. , um die Ref.-ID zurückzugeben
 
             Match m = Regex.Match(answer, @"\+CMGS: (\d+)");
 
@@ -354,15 +365,12 @@ namespace MelBox2Gsm
             #endregion
 
             #region neue SMS oder Statusreport empfangen
-            //Match m2 = Regex.Match(recLine, @"\+C(?:MT|DS)I: ");
+            Match m2 = Regex.Match(recLine, @"\+C(?:MT|DS)I: ");
 
-            //if (m2.Success)
-            //{
-            //    foreach (SmsIn sms in SmsRead())
-            //        Console.WriteLine($"Empfangene Sms: {sms.Index} - {sms.Phone}:\t{sms.Message}");
-
-            //    show = true;
-            //}
+            if (m2.Success)
+            {                
+                GetSms("REC UNREAD");         
+            }
             #endregion
 
             #region Netzwerkstatus geändert
@@ -669,7 +677,8 @@ namespace MelBox2Gsm
                     {
                         Thread.Sleep(3000);
                         SetupGsmModem(); //Modem neu initialisieren
-                        SetCallRedirection(CallRelayPhone); //Rufumleitung neu setzen
+                        CallRelay callRelay = SetCallRedirection(CallRelayPhone); //Rufumleitung neu setzen               
+                        Pipe3.SendGsmStatus(nameof(CallRelayPhone), callRelay.Status);
                     }
                 }
             }

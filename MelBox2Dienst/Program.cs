@@ -5,6 +5,8 @@ namespace MelBox2Dienst
 {
     internal static class Program
     {
+        public static string MelBox2AdminPhone { get; set; } = @"+4916095285304"; // Properties.Settings.Default.AdminPhone;
+
         public static bool IsRunningInConsole = Environment.UserInteractive;
 
         /// <summary>

@@ -41,9 +41,10 @@ namespace MelBox2Gsm
         {
             //Setze Rufumleitung zurück
             DeactivateCallRedirection();
-            Port.Dispose();
-
+            Program.Port.Close();
+            Port.Dispose();            
             Log.Info($"{this.ServiceName} wurde beendet.");
+            Thread.Sleep(3000);
         }
 
         internal void TestStartupAndStop()
@@ -56,7 +57,8 @@ namespace MelBox2Gsm
             Console.WriteLine(
                 "Hinweis: AT-Befehle eingeben und mit Eingabetaste abschicken.\r\n" +
                 "exit = beenden\r\n" +
-                "sim = SMS-Empfang simulieren\r\n"
+                "sim = SMS-Empfang simulieren\r\n" +
+                "senden = SMS versenden an Handy Harm\r\n"
                 );
 
             while (true)
@@ -65,6 +67,8 @@ namespace MelBox2Gsm
 
                 if (request.ToLower() == "sim")
                     SimulateSmsRecieved();
+                else if (request.ToLower() == "senden")
+                    SimulateSmsSend();
                 else if (request.ToLower() == "exit")
                     break;
                 else if (request.Length > 1) //Als AT-Befehl interpretieren

@@ -19,6 +19,7 @@ namespace MelBox2Gsm
         static void Main()
         {
             Pipe3.StartPipeServer(Pipe3.PipeName.Gsm, true);
+            //Pipe3.StartPipeServer2(Pipe3.PipeName.Gsm);
 
             System.ServiceProcess.ServiceBase[] ServicesToRun;
 

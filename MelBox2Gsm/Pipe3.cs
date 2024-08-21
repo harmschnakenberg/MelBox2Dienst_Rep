@@ -31,11 +31,40 @@ namespace MelBox2Gsm
             public const string CallRelay = "CallRelay";
             public const string CallRecieved = "CallRecieved";
             public const string GsmStatus = "GsmStatus";
+            public const string GsmReinit = "GsmReinit";
             public const string Error = "ERROR";
         }
         #endregion
 
         #region Auf Anfrage warten und Anfragen auswerten
+
+        internal static async void StartPipeServer2(string pipeName)
+        {
+            using (var server = new NamedPipeServerStream(pipeName, PipeDirection.InOut))
+            {
+                while (true)
+                {
+                    server.WaitForConnection();
+                    using (StreamReader sr = new StreamReader(server))
+                    using (StreamWriter writer = new StreamWriter(server))
+                    {
+                        string line = sr.ReadToEnd();
+                        string answer = ParseQuery(line);
+
+                        #region Antwort zurück                            
+                        if (answer != null)
+                        {
+                            await writer.WriteLineAsync(answer);
+                            await writer.FlushAsync();
+                        }
+                        #endregion
+                    }
+                    server.Disconnect();
+                }
+            }
+        }
+
+
 
         /// <summary>
         /// Erstellt eine NamedPipe und wartet auf einen Client, verarbeitet die Anfrage udn schickt eine Antwort zurück
@@ -59,26 +88,27 @@ namespace MelBox2Gsm
 #if DEBUG
                             Log.Info($"Anfrage an {pipeName} > '{line}'");
 #endif
-                            if (line == null)
-                                break;
-
-                            string answer = ParseQuery(line);
-#if DEBUG
-                            Log.Info($"Antwort von {pipeName} > '{answer}'");
-#endif
-                            #region Antwort zurück                            
-                            if (answer != null)
+                            if (line?.Length > 0)
                             {
-                                await writer.WriteLineAsync(answer);
-                                await writer.FlushAsync();
+                                string answer = ParseQuery(line);
+#if DEBUG
+                                Log.Info($"Antwort von {pipeName} > '{answer}'");
+#endif
+                                #region Antwort zurück                            
+                                if (answer != null)
+                                {
+                                    await writer.WriteLineAsync(answer);
+                                    await writer.FlushAsync();
+                                }
+                                #endregion
                             }
-                            #endregion
                         }
                     }
                 }
             }
             catch (System.IO.IOException)
             {
+                Log.Error("NamedPipeServer IOException. Neustart NamedPipe: " + perpetual);
                 if (perpetual)
                     StartPipeServer(pipeName, true);
             }
@@ -105,7 +135,7 @@ namespace MelBox2Gsm
         /// <returns></returns>
         private static async Task<KeyValuePair<string, string>> Send(string pipeName, string verb, string arg)
         {
-            
+
             try
             {
                 using (var client = new NamedPipeClientStream(pipeName))
@@ -117,7 +147,7 @@ namespace MelBox2Gsm
                         await writer.WriteLineAsync($"{verb}|{arg}");
                         await writer.FlushAsync();
                         string result = await reader?.ReadLineAsync();
-                        string[] args = result.Split('|');       
+                        string[] args = result?.Split('|');
                         return new KeyValuePair<string, string>(args[0], args[1]);
                     }
                 }
@@ -194,6 +224,10 @@ namespace MelBox2Gsm
                     //Antwort auf Anfrage Sprachanruf protokollierten 
                     //keine Antwort erforderlich
                     return null;
+                case Verb.GsmReinit:
+                    SetupGsmModem();
+                    //keine Antwort erforderlich
+                    return null;                    
                 default:
                     return Answer(verb, "unbekannt " + arg);
 
@@ -224,7 +258,7 @@ namespace MelBox2Gsm
         internal static async void GsmErrorOccuredAsync(string msg)
         {
             _ = await Send(PipeName.MelBox2Service, Verb.Error, msg);
-            Log.Error(msg);            
+            Log.Error(msg);
         }
 
         /// <summary>
@@ -242,7 +276,7 @@ namespace MelBox2Gsm
             //Bei Erfolg wird die gleiche Nachricht zurückgesandt
             Log.Info($"Antwort: '{answer.Value}'");
 
-            Sms back = JsonSerializer.Deserialize<Sms>(answer.Value);            
+            Sms back = JsonSerializer.Deserialize<Sms>(answer.Value);
 #if DEBUG
             Log.Info($"SMS an Index {back.Index} erfolgreich protokolliert. Kann jetzt gelöscht werden.");
 #endif
@@ -256,7 +290,7 @@ namespace MelBox2Gsm
         /// </summary>
         /// <param name="reportIn"></param>
         internal async static void ReportRecieved(StatusReport reportIn)
-        {            
+        {
             var answer = await Pipe3.Send(Pipe3.PipeName.MelBox2Service, Pipe3.Verb.ReportRecieved, JsonSerializer.Serialize(reportIn));
             //Bei erfolg wird die Anfrage unverändetr zurückgeschickt
             StatusReport reportAnswer = JsonSerializer.Deserialize<StatusReport>(answer.Value);
@@ -284,8 +318,8 @@ namespace MelBox2Gsm
         /// <param name="report"></param>
         internal async static void SendGsmStatus(string property, string status)
         {
-           // string query = JsonSerializer.Serialize(new KeyValuePair<string, string>(property, DateTime.Now + ":<br/>" + status));
-            string query = JsonSerializer.Serialize(new Tuple<string, DateTime, string>(property, DateTime.Now , status));
+            // string query = JsonSerializer.Serialize(new KeyValuePair<string, string>(property, DateTime.Now + ":<br/>" + status));
+            string query = JsonSerializer.Serialize(new Tuple<string, DateTime, string>(property, DateTime.Now, status));
             _ = await Pipe3.Send(PipeName.MelBox2Service, Verb.GsmStatus, query);
             //Keine Rückantwort erwartet
         }

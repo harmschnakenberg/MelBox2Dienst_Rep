@@ -25,6 +25,7 @@ namespace MelBox2Gsm
                 Program.Log.Error("Es wurden keine COM-Ports erkannt.");
                 Pipe3.SendGsmStatus(Pipe3.Verb.Error, "Es wurden keine COM-Ports (GSM-Modem) erkannt.");
                 base.Close();
+                return;
             }
 
             if (!Array.Exists(ports, x => x == portName))
@@ -46,6 +47,7 @@ namespace MelBox2Gsm
             WriteTimeout = 300;
             ReadTimeout = 500;
             //RtsEnable = true; //TEST
+            DtrEnable = true; //TEST
             ErrorReceived += SerialPortErrorEvent;
         }
 
@@ -75,14 +77,14 @@ namespace MelBox2Gsm
 
             if (!base.IsOpen)
             {
-                string errorText = $"Der COM-Port {base.PortName} ist nicht bereit. Das Programm wird beendet.";
+                string errorText = $"Der COM-Port {base.PortName} ist nicht bereit. Das Programm {System.Reflection.Assembly.GetExecutingAssembly().GetName().Name} wird beendet.";
                 Console.WriteLine(errorText);
                 base.Close();
                 Log.Error(errorText);
                 Pipe3.SendGsmStatus(Pipe3.Verb.Error, errorText);
             }
         }
-
+        
         #endregion
 
         #region Read
@@ -184,6 +186,7 @@ namespace MelBox2Gsm
         #region Write
 
         private readonly AutoResetEvent _wait = new AutoResetEvent(false);
+
 
         public string Ask(string request, int timeout = 3000, bool log = true)
         {
