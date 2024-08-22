@@ -14,7 +14,7 @@ namespace MelBox2Dienst
         /// <summary>
         /// Generelle Freigabe zur Verwendung von E-Mail-Kommunikation
         /// </summary>
-        public static bool IsEmailUsed { get; set; } = false;
+        public static bool IsEmailUsed { get; set; } = true;
 
         public static string GsmSignalQuality { get; private set; } = "-1%";
 
@@ -190,7 +190,7 @@ namespace MelBox2Dienst
                     }
 
                     //keine Antwort erforderlich
-                    return null;
+                    return null; // Answer(Verb.CallRelay, string.Empty);
                 case Verb.CallRecieved:
                     string callingNumber = arg;
                     //eingegangenen Sprachanruf protokollieren
@@ -300,9 +300,11 @@ namespace MelBox2Dienst
 
         internal static async void SendSmsAsync(Sms sms)
         {
-            if (!IsPhoneNumber(sms.Phone)) 
+            if (!IsPhoneNumber(sms.Phone))
+            {
+                Log.Error($"SMS kann nicht gesendet werden.'{sms.Phone}' ist keien gültige Telefonnummer.");
                 return;
-            
+            }
                 KeyValuePair<string, string> pipeAnswer = await Send(PipeName.Gsm, Verb.SmsSend, JsonSerializer.Serialize(sms));
 
             if (pipeAnswer.Value?.Length == 0) //Fehler (z.B. Pipe zu GSM-Modem?): Wie abfangen?

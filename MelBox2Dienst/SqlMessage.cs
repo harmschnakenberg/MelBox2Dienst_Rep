@@ -52,8 +52,10 @@ namespace MelBox2Dienst
                 else if (isTestSms)
                     body += "Test der SMS-Zentrale.\r\n";
 
-                string subject = sms.Content.Length > 32 ? sms.Content.Substring(0, 32) : sms.Content;
-
+                string subject = sms.Content?.Length > 32 ? sms.Content.Substring(0, 32) : sms.Content;
+#if DEBUG
+                Log.Info("E-Mail bereit zum versenden:\r\n" + body);
+#endif
                 Email newSmsRecievedmail = new Email(From, permanentGuards.Select(x => x.Email).Where(y => y.Contains("@")).ToList(), null, subject, body);
                 Pipe1.SendEmail(newSmsRecievedmail);
 
@@ -61,7 +63,7 @@ namespace MelBox2Dienst
 
                 #region SMS versenden                
                 if (!(isBlocked || isBuisinessTime || isAlifeMessage || isTestSms))
-                    Pipe1.SendSms(currentGuards.Select(x => x.Phone).Where(y => y?.Length > 3).ToList(), sms, messageId);
+                    Pipe1.SendSms(currentGuards.Select(x => x?.Phone).Where(y => y?.Length > 3).ToList(), sms, messageId);
                 #endregion
 
                 return messageId > 0;

@@ -322,8 +322,9 @@ namespace MelBox2Gsm
         /// Prüft, ob der vom Modem empfangene Text Ereignismeldungen des GSM-Modems enthält
         /// </summary>
         /// <param name="recLine">vom GSM-Modem empfangene Zeichenkette</param>
-        public static void CeckUnsolicatedIndicators(string recLine)
+        public static bool CeckUnsolicatedIndicators(string recLine)
         {
+            bool containsunsolicadedIndicator = false;
 //#if DEBUG
 //            Log.Warn(recLine);
 //#endif
@@ -349,9 +350,11 @@ namespace MelBox2Gsm
             //" RING " or " +CRING " URC when a mobile terminated call occurs.
             #endregion
 
-            if (m3.Success)                          
+            if (m3.Success)
+            {
+                containsunsolicadedIndicator = true;
                 Pipe3.CallRecieved(m3.Groups[1].Value.Trim('"'));
-
+            }
             #endregion
 
             #region SIM-Schubfach
@@ -368,7 +371,8 @@ namespace MelBox2Gsm
             Match m2 = Regex.Match(recLine, @"\+C(?:MT|DS)I: ");
 
             if (m2.Success)
-            {                
+            {
+                containsunsolicadedIndicator = true;
                 GetSms("REC UNREAD");         
             }
             #endregion
@@ -389,13 +393,16 @@ namespace MelBox2Gsm
             #endregion
 
             #region Fehler Mobilequipment            
-            Match m5 = Regex.Match(recLine, @"\+CM[ES] ERROR: (.+)");
-            if (m5.Success)
-            {
-                var currentError = m5.Groups[1].Value.TrimEnd('\r');            
-                Pipe3.SendGsmStatus(Pipe3.Verb.Error, currentError);
-            }
+            //Match m5 = Regex.Match(recLine, @"\+CM[ES] ERROR: (.+)");
+            //if (m5.Success)
+            //{
+            //    containsunsolicadedIndicator = true;
+            //    var currentError = m5.Groups[1].Value.TrimEnd('\r');            
+            //    Pipe3.SendGsmStatus(Pipe3.Verb.Error, currentError);
+            //}
             #endregion
+
+            return containsunsolicadedIndicator;
         }
 
         ///// <summary>
@@ -437,14 +444,13 @@ namespace MelBox2Gsm
 
         internal static void SetupGsmModem()
         {
-
             _ = Port.Ask("AT");         //Test, ob Verbindung besteht
             _ = Port.Ask("AT+CMGF=1");  //Textmodus  
-            _ = Port.Ask("AT+CMEE=2");  //Fehlermeldungen im Klartext           
+            _ = Port.Ask("AT+CMEE=2");  //Fehlermeldungen im Klartext            
+            _ = Port.Ask("AT+CNMI=2,2,2,2,1"); //New SMS message indication S.367ff.        AT+CNMI= [ <mode> ][,  <mt> ][,  <bm> ][,  <ds> ][,  <bfr> ]                                
             _ = Port.Ask("AT+CSMP=49,167,0,0"); //Set SMS text Mode Parameters, 49, indicates the request for delivery report https://stackoverflow.com/questions/41676661/get-delivery-status-after-sending-sms-via-gsm-modem-using-at-commands
-            _ = Port.Ask("AT+CNMI=2,1,2,2,1"); //New SMS message indication S.367ff.
-           
-
+            
+            SetGsmMemory(true, true);
             GetModemType();
 #if DEBUG
             Log.Info("Setze PIN " + SimPin);
@@ -467,7 +473,7 @@ namespace MelBox2Gsm
         /// <param name="unlockPin">true = deaktiviert PIN-Abfrage</param>
         public static void GetSimPinStatus(string simPin, bool unlockPin = true)
         {
-            string answer = Port.Ask("AT+CPIN?");
+            string answer = Port.Ask("AT+CPIN?", 6000); //SIM-PIN setzen dauert lange
             MatchCollection mc = Regex.Matches(answer, @"\+CPIN: (.+)\r");
 
             if (mc.Count > 0)
@@ -681,6 +687,55 @@ namespace MelBox2Gsm
                         Pipe3.SendGsmStatus(nameof(CallRelayPhone), callRelay.Status);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Setzt den Speicherort für SMS.
+        /// </summary>
+        /// <param name="sim"></param>
+        /// <param name="device"></param>
+        private static void SetGsmMemory(bool sim = true, bool device = true)
+        {
+            /*  
+            Write Command
+            AT+CPMS=<mem1> [,  <mem2> [,  <mem3> ]]
+            Response(s)
+            +CPMS: <used1> ,  <total1> ,  <used2> ,  <total2> ,  <used3> ,  <total3>
+            OK
+            ERROR
+            ERROR
+            +CMS ERROR
+            */
+
+            //<mem1> listing, reading and deleting messages
+            //<mem2> writing and sending messages
+            //<mem3> Received messages will be placed in this memory storage if routing to TE is not set. See command  AT+CNMI with parameter <mt> = 2.
+
+            string mem;
+
+            if (sim && !device) mem = "SM";
+            else if (!sim && device) mem = "ME";
+            else mem = "MT";
+
+            string answer = Port.Ask($"AT+CPMS=\"{mem}\",\"{mem}\",\"{mem}\"");
+            MatchCollection mc = Regex.Matches(answer, @"\+CPMS: (\d+),(\d+),(\d+),(\d+),(\d+),(\d+)");
+
+            if (mc.Count > 0)
+            {
+                int readmem_used = int.Parse(mc[0].Groups[1].Value);
+                int readmem_max = int.Parse(mc[0].Groups[2].Value);
+                int writemem_used = int.Parse(mc[0].Groups[3].Value);
+                int writemem_max = int.Parse(mc[0].Groups[4].Value);
+                int recmem_used = int.Parse(mc[0].Groups[5].Value);
+                int recmem_max = int.Parse(mc[0].Groups[6].Value);
+
+                //SmsStorageCapacity = Math.Max(Math.Max(readmem_max, writemem_max), recmem_max);
+
+                //int maxMemSum = readmem_max + writemem_max + recmem_max;
+                //SmsStorageCapacityUsed = maxMemSum == 0 ? -1 : (readmem_used + writemem_used + recmem_used) / maxMemSum;
+
+                Pipe3.SendGsmStatus("SmsStorageCapacity", $"Lesen: {readmem_used}/{readmem_max}, Senden: {writemem_used}/{writemem_max}, Speicher: {recmem_used}/{recmem_max}");
             }
         }
 

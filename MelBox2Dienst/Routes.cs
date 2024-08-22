@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -223,6 +224,8 @@ namespace MelBox2Dienst
         {        
             string html = "<h4>Status GSM-Modem</h4>" +
                 "<div>Statusmeldungen von GSM-Modem</div>" +
+
+            #region Tabelle aktuelle Eigenschaften GSM-Modem
                 "<table class='table' style='width:100%'>" +
                 "<tr><th>Eigenschaft</th><th>Zeitpunkt</th><th>Wert</th></tr>";
             foreach (var key in Pipe1.GsmStatus.Keys)
@@ -231,14 +234,23 @@ namespace MelBox2Dienst
             }
 
             html += "</table>";
-            
-            //html += @"<a href='gsm/reinit' class='btn btn-outline-secondary'>GSM-Modem reinitialisieren</a>";
 
-            html += @"<form action='gsm/testsms' method='post'><div class='input-group mb-3'>     
-                      <a href='gsm/reinit' class='btn btn-outline-secondary'>GSM-Modem reinitialisieren</a>
+            #endregion
+
+            //html += @"<a href='gsm/reinit' class='btn btn-outline-secondary'>GSM-Modem reinitialisieren</a>";
+            #region Test-SMS versenden
+            html += @"<form action='gsm/testsms' method='post'><div class='input-group mb-3'>                           
+                     
+                      <span class='input-group-text'>Test-SMS versenden</span>
+                      <input type='text' class='form-control' name='message' placeholder='Text der SMS' value='Test-SMS von MelBox2' required>
                       <input type='tel' class='form-control' name='phone' placeholder='+491601234567 (Mobilnummer)' pattern='\+[0-9]{10,}' required>
                       <button class='btn btn-outline-primary' type='submit'>SMS Senden</button>
-                    </div></form>";
+                    </div></form>
+                    <a href='gsm/reinit' class='btn btn-outline-secondary'>GSM-Modem reinitialisieren</a>";
+
+            #endregion
+
+            #region Kurve Mobilfunknetzqualität
 
             html += "<script src='https://www.gstatic.com/charts/loader.js'></script>" +
                 "<div id='myChart' style='width:100%;height:400px;'></div>" +
@@ -278,7 +290,7 @@ namespace MelBox2Dienst
                 }" +
                 "</script>";
 
-
+            #endregion
 
             await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
         }
@@ -295,12 +307,16 @@ namespace MelBox2Dienst
         public async Task GsmTestSms(IHttpContext context)
         {
             Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
-            string phone = formContent["phone"];
-            
-            Sms smsTest = new Sms(-1, DateTime.UtcNow, phone, "Test-SMS von MelBox2");
-            Console.WriteLine($"Sende Test-SMS an '{phone}'");
-            Pipe1.SendSmsAsync(smsTest);
+            string phone = "+" + WebUtility.UrlDecode(formContent["phone"].TrimStart('+'));
+            string message = WebUtility.UrlDecode(formContent["message"]);
+            if (message?.Length < 3) message = "Test-SMS von MelBox2";
 
+            Sms smsTest = new Sms(-1, DateTime.UtcNow, phone, message);
+
+            Pipe1.SendSmsAsync(smsTest);
+#if DEBUG
+            MelBox2Dienst.Log.Info($"Sende Test-SMS '{smsTest.Content}' an '{smsTest.Phone}'");
+#endif
             await GsmRoute(context);
         }
 

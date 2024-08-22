@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -104,24 +105,35 @@ namespace MelBox2Dienst
         public static async Task Login(IHttpContext context)
         {
             Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
-            string name = formContent["uname"].Replace("<", "&lt;").Replace(">", "&gt;"); //HTML unschädlich machen
-            string password = formContent["pswd"].Replace("<", "&lt;").Replace(">", "&gt;");
-            Service logedIn = Sql.CheckCredentials(name, password);
+            string name = WebUtility.UrlDecode(formContent["uname"]).Replace("<", "&lt;").Replace(">", "&gt;"); //HTML unschädlich machen
+            string password = WebUtility.UrlDecode(formContent["pswd"]).Replace("<", "&lt;").Replace(">", "&gt;");
+            Console.WriteLine($"TEST: Login '{name}' '{password}'");
 
+            uint serviceId = Sql.CheckCredentials(name, password);
+         
+            if (serviceId < 1)
+                //Login nicht erfolgreich
+                await context.Response.SendResponseAsync(Html.Sceleton($"<h1>TEST Login nicht erfolgreich: {name}, ''</h1>")).ConfigureAwait(false);
+            else
+                //Login erfolgreich
 
-            await context.Response.SendResponseAsync(Html.Sceleton($"TEST Login: {logedIn.Name}, ''")).ConfigureAwait(false);
+                await context.Response.SendResponseAsync(Html.Sceleton($"<h1>TEST Login:[{serviceId}] {name}, ''</h1>")).ConfigureAwait(false);
         }
 
         [RestRoute("Post", "/register")]
         public static async Task Register(IHttpContext context)
         {
             Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
-            string name = formContent["uname"].Replace("<", "&lt;").Replace(">", "&gt;"); //HTML unschädlich machen
-            string password = formContent["pswd"].Replace("<", "&lt;").Replace(">", "&gt;");
-            Service logedIn = Sql.CheckCredentials(name, password);
+            string name = WebUtility.UrlDecode(formContent["uname"]).Replace("<", "&lt;").Replace(">", "&gt;"); //HTML unschädlich machen
+            string password = WebUtility.UrlDecode(formContent["pswd"]).Replace("<", "&lt;").Replace(">", "&gt;");
+            uint serviceId = Sql.CheckCredentials(name, password);
 
-
-            await context.Response.SendResponseAsync(Html.Sceleton($"TEST Login: {logedIn.Name}, ''")).ConfigureAwait(false);
+            if (serviceId > 0)
+                //Registrierung nicht erfolgreich, Benutzer gibt es schon
+                await context.Response.SendResponseAsync(Html.Sceleton($"<h1>TEST Register nicht möglich: Benutzername {name} schon vorhanden, ''</h1>")).ConfigureAwait(false);
+            else
+                //Login erfolgreich
+                await context.Response.SendResponseAsync(Html.Sceleton($"TEST Register: {name}, ''")).ConfigureAwait(false);
         }
 
         /// <summary>

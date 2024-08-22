@@ -151,6 +151,9 @@ namespace MelBox2Dienst
         {
             string encryped_pw = Encrypt(password);
 
+            if (encryped_pw?.Length < 3)
+                return;
+
             const string query = @"INSERT INTO Service (Name, Password ) VALUES (@Name, @Password)
                                     SELECT Id, Name FROM Service WHERE Name = @Name AND Password = @Password;";
 
@@ -164,36 +167,38 @@ namespace MelBox2Dienst
         }
 
 
-        internal static Service CheckCredentials(string name, string password)
+        internal static uint CheckCredentials(string name, string password)
         {
             //try
             //{
-                string encryped_pw = Encrypt(password);
+            string encryped_pw = Encrypt(password);
 
-                const string query = "SELECT Id, Name FROM Service WHERE Name = @Name AND Password = @Password;";
 
-                Dictionary<string, object> args = new Dictionary<string, object>
+            const string query = "SELECT Id FROM Service WHERE Name = @Name AND Password = @Password;";
+
+            Dictionary<string, object> args = new Dictionary<string, object>
                 {
                     { "@Name", name },
                     { "@Password", encryped_pw }
                 };
 
-                DataTable dt = SelectDataTable(query, args);
-                return new Service(dt);
+            _ = uint.TryParse(SelectValue(query, args)?.ToString(), out uint serviceid);
 
-                //if (service.Id > 0)
-                //{
-                //    while (Server.LogedInHash.Count > 10) //Max. 10 Benutzer gleichzetig eingelogged
-                //    {
-                //        Server.LogedInHash.Remove(Server.LogedInHash.Keys.GetEnumerator().Current);
-                //    }
+            return serviceid;
 
-                //    string guid = Guid.NewGuid().ToString("N");
+            //if (service.Id > 0)
+            //{
+            //    while (Server.LogedInHash.Count > 10) //Max. 10 Benutzer gleichzetig eingelogged
+            //    {
+            //        Server.LogedInHash.Remove(Server.LogedInHash.Keys.GetEnumerator().Current);
+            //    }
 
-                //    Server.LogedInHash.Add(guid, p);
+            //    string guid = Guid.NewGuid().ToString("N");
 
-                //    return guid;
-                //}
+            //    Server.LogedInHash.Add(guid, p);
+
+            //    return guid;
+            //}
             //}
             //catch (Exception)
             //{
@@ -315,10 +320,10 @@ namespace MelBox2Dienst
 
         public Service(DataTable dt)
         {
-            Id = uint.Parse(dt.Rows[0]["Id"].ToString());
-            Name = dt.Rows[0]["Name"].ToString();
-            Phone = dt.Rows[0]["Phone"].ToString();
-            Email = dt.Rows[0]["Email"].ToString();
+            Id = uint.Parse(dt.Rows[0]["Id"]?.ToString());
+            Name = dt.Rows[0]["Name"]?.ToString();
+            Phone = dt.Rows[0]["Phone"]?.ToString();
+            Email = dt.Rows[0]["Email"]?.ToString();
         }
 
         public Service(DataRow row)

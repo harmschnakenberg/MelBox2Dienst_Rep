@@ -272,9 +272,15 @@ namespace MelBox2Gsm
             Log.Info($"Empfange SMS: {smsIn.Index}, {smsIn.Phone}, {smsIn.Content}");
 
             //Sende Empfangene SMS zur DB
-            var answer = await Send(PipeName.MelBox2Service, Verb.SmsRecieved, JsonSerializer.Serialize<Sms>(smsIn));
+            KeyValuePair<string, string> answer = await Send(PipeName.MelBox2Service, Verb.SmsRecieved, JsonSerializer.Serialize<Sms>(smsIn));
             //Bei Erfolg wird die gleiche Nachricht zurückgesandt
             Log.Info($"Antwort: '{answer.Value}'");
+
+            if (answer.Value?.Length < 3)
+            {
+                Log.Error($"SMS an Index {smsIn.Index} konnte nicht übermittelt werden.");
+                return;
+            }
 
             Sms back = JsonSerializer.Deserialize<Sms>(answer.Value);
 #if DEBUG
@@ -291,8 +297,15 @@ namespace MelBox2Gsm
         /// <param name="reportIn"></param>
         internal async static void ReportRecieved(StatusReport reportIn)
         {
-            var answer = await Pipe3.Send(Pipe3.PipeName.MelBox2Service, Pipe3.Verb.ReportRecieved, JsonSerializer.Serialize(reportIn));
+            KeyValuePair<string, string> answer = await Pipe3.Send(Pipe3.PipeName.MelBox2Service, Pipe3.Verb.ReportRecieved, JsonSerializer.Serialize(reportIn));
             //Bei erfolg wird die Anfrage unverändetr zurückgeschickt
+
+            if (answer.Value?.Length < 1)
+            {
+                Log.Error("Empfangener Report konnte nicht übermittelt werden.");
+                return;
+            }
+
             StatusReport reportAnswer = JsonSerializer.Deserialize<StatusReport>(answer.Value);
 #if DEBUG
             Log.Info($"Statusrepart an Index {reportAnswer.Reference} erfolgreich protokolliert. Kann jetzt gelöscht werden.");

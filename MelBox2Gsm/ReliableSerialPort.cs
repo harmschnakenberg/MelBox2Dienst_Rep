@@ -148,7 +148,8 @@ namespace MelBox2Gsm
                 _wait.Set();
 
             //Prüfe auf unerwartete Meldungen vom Modem
-            CeckUnsolicatedIndicators(recLine);
+            if (CeckUnsolicatedIndicators(recLine))
+                _wait.Set();
         }
 
         private static int ErrorCount;

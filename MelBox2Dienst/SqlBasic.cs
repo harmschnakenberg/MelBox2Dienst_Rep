@@ -147,15 +147,15 @@ namespace MelBox2Dienst
 
                                 for (int i = 0; i < reader.FieldCount; i++)
                                 {
-                                    string colType = myTable.Columns[i].DataType.Name;
+                                   // string colType = myTable.Columns[i].DataType.Name;
 
                                     if (reader.IsDBNull(i))
                                     {
                                         row.Add(string.Empty);
                                     }
                                     else
-                                    {
-                                        string r = reader.GetFieldValue<string>(i);
+                                    {                                 
+                                        string r = reader.GetFieldValue<object>(i).ToString();
                                         row.Add(r);
                                     }
                                 }

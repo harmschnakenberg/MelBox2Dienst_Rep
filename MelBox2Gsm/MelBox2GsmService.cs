@@ -65,13 +65,13 @@ namespace MelBox2Gsm
             {
                 string request = Console.ReadLine();
 
-                if (request.ToLower() == "sim")
+                if (request?.ToLower() == "sim")
                     SimulateSmsRecieved();
-                else if (request.ToLower() == "senden")
+                else if (request?.ToLower() == "senden")
                     SimulateSmsSend();
-                else if (request.ToLower() == "exit")
+                else if (request?.ToLower() == "exit")
                     break;
-                else if (request.Length > 1) //Als AT-Befehl interpretieren
+                else if (request?.Length > 1) //Als AT-Befehl interpretieren
                     _ = Program.Port.Ask(request);
             }
 
@@ -83,11 +83,10 @@ namespace MelBox2Gsm
         public void OnTimer(object sender, ElapsedEventArgs args)
         {
             // TODO: Insert monitoring activities here.
-            //_eventLog1.WriteEntry("Monitoring the System", EventLogEntryType.Information, eventId++);
-#if DEBUG
-            if (Environment.UserInteractive)
-                Console.WriteLine(DateTime.Now);
-#endif
+//#if DEBUG
+//            if (Environment.UserInteractive)
+//                Console.WriteLine(DateTime.Now);
+//#endif
             GetNetworkRegistration();
             GetSignalQuality();
             GetSms();        

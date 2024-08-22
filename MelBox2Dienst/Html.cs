@@ -343,27 +343,34 @@ namespace MelBox2Dienst
         public static string ConvertDataTable(DataTable dt, Dictionary<string, string> links)
         {
             string html = "<table id='table01' class='table table-striped'>";
-            //add header row
-            html += "<tr>";
-            for (int i = 0; i < dt.Columns.Count; i++)
-                html += "<th>" + dt.Columns[i].ColumnName + "</th>";
-            html += "</tr>";
-            //add rows
-            for (int i = 0; i < dt.Rows.Count; i++)
+            try //TEST
             {
-                html += "<tr class='item'>";
-                for (int j = 0; j < dt.Columns.Count; j++)
-                {
-                    if (links.ContainsKey(dt.Columns[j].ColumnName))
-                        html += $"<td><a class='btn btn-primary' href='/{links[dt.Columns[j].ColumnName]}?{dt.Columns[j].ColumnName}={dt.Rows[i][j]}'>{dt.Rows[i][j]}</a></td>";
-                    else if (dt.Rows[i][j].ToString().StartsWith("#") && dt.Rows[i][j].ToString().Length == 7)
-                        html += $"<td style='background-color:{dt.Rows[i][j]};'></td>";
-                    else
-                        html += "<td>" + dt.Rows[i][j].ToString() + "</td>";
-                }
+                //add header row
+                html += "<tr>";
+                for (int i = 0; i < dt.Columns.Count; i++)
+                    html += "<th>" + dt.Columns[i].ColumnName + "</th>";
                 html += "</tr>";
+                //add rows
+                for (int i = 0; i < dt.Rows.Count; i++)
+                {
+                    html += "<tr class='item'>";
+                    for (int j = 0; j < dt.Columns.Count; j++)
+                    {
+                        if (links.ContainsKey(dt.Columns[j].ColumnName))
+                            html += $"<td><a class='btn btn-primary' href='/{links[dt.Columns[j].ColumnName]}?{dt.Columns[j].ColumnName}={dt.Rows[i][j]}'>{dt.Rows[i][j]}</a></td>";
+                        else if (dt.Rows[i][j].ToString().StartsWith("#") && dt.Rows[i][j].ToString().Length == 7)
+                            html += $"<td style='background-color:{dt.Rows[i][j]};'></td>";
+                        else
+                            html += "<td>" + dt.Rows[i][j].ToString() + "</td>";
+                    }
+                    html += "</tr>";
+                }
+                html += "</table>";
             }
-            html += "</table>";
+            catch (Exception ex)
+            {
+                html += ex;
+            }
             return html;
         }
 
