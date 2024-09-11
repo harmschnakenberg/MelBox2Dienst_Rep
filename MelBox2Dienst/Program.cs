@@ -42,12 +42,12 @@ namespace MelBox2Dienst
     {
         internal static void Info (string text)
         {
-            //if (Program.IsRunningInConsole)
-            //    Console.WriteLine("Log > " + text);
-            //else
-            //{
+            if (Program.IsRunningInConsole)
+                Console.WriteLine("Log > " + text);
+            else
+            {
                 Sql.InsertLog(3, text);
-            //}
+            }
         }
 
         internal static void Error(string text)

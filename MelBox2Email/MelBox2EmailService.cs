@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Configuration;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
@@ -18,18 +19,22 @@ namespace MelBox2Email
     {
         const string PR_SMTP_ADDRESS = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
 
-        public static int EmailPokeInterval { get; set; } = 60;
+        public static int EmailPokeInterval { get; set; } = Properties.Settings.Default.EmailPokeInterval;
 
         static readonly Application OutlookApp = new Application();
         static readonly NameSpace OutlookNamespace = OutlookApp.GetNamespace("MAPI");
-        static readonly MAPIFolder inboxFolder = OutlookNamespace.GetDefaultFolder(OlDefaultFolders.olFolderInbox);
+        static MAPIFolder inboxFolder = OutlookNamespace.GetDefaultFolder(OlDefaultFolders.olFolderInbox);        
         static MAPIFolder archiveFolder = OutlookNamespace.GetDefaultFolder(OlDefaultFolders.olFolderJournal);
         
 
         public MelBox2EmailService()
         {
             InitializeComponent();
-            SetCustomArchiveFolder("ArchivOrdner");
+            MAPIFolder global = OutlookNamespace.GetDefaultFolder(OlDefaultFolders.olFolderInbox).Parent;
+            inboxFolder = SetCustomMailBoxFolder(global, Properties.Settings.Default.InBoxFolder);
+            archiveFolder = SetCustomMailBoxFolder(inboxFolder, Properties.Settings.Default.ArchiveFolderName);
+
+            Console.WriteLine($"Posteingang: {inboxFolder.Name}, Archivordner: {archiveFolder.Name}");            
         }
 
         /// <summary>
@@ -37,20 +42,17 @@ namespace MelBox2Email
         /// Empfangene E-Mails werden nach Auswertung in diesen Ordner verschoben.
         /// </summary>
         /// <param name="archiveFolderName">Name des Ordners in Outlook</param>
-        private static void SetCustomArchiveFolder(string archiveFolderName)
+        private static MAPIFolder SetCustomMailBoxFolder(MAPIFolder root, string archiveFolderName)
         {
             //Quelle: https://www.c-sharpcorner.com/article/outlook-integration-in-C-Sharp/
-            
-            foreach (MAPIFolder subFolder in inboxFolder.Folders)
+                        
+            foreach (MAPIFolder subFolder in root.Folders)
             {
-                if (subFolder.Name == archiveFolderName)
-                {
-                    archiveFolder = subFolder;
-                    return;
-                }
+                if (subFolder.Name == archiveFolderName)                
+                    return subFolder;                                    
             }
-
-            archiveFolder = inboxFolder.Folders.Add(archiveFolderName, Type.Missing);
+            
+            return root.Folders.Add(archiveFolderName, Type.Missing);
         }
 
         internal void TestStartupAndStop()
@@ -67,10 +69,14 @@ namespace MelBox2Email
         protected override void OnStart(string[] args)
         {
             Pipe4.StartPipeServer(Pipe4.PipeName.Email, true);
-
+            
             OutlookNamespace.Logon();
             OutlookApp.NewMail += OutlookApp_NewMail;
-
+      
+            var exchangeUser = OutlookNamespace.CurrentUser.AddressEntry.GetExchangeUser();
+            Pipe4.SendEmailStatus(nameof(exchangeUser.Name), exchangeUser.Name);
+            Pipe4.SendEmailStatus(nameof(exchangeUser.PrimarySmtpAddress), exchangeUser.PrimarySmtpAddress);
+            
             // Set up a timer that triggers every minute.
             System.Timers.Timer timer = new System.Timers.Timer
             {
@@ -80,12 +86,15 @@ namespace MelBox2Email
             timer.Start();
         }
 
+
         protected override void OnStop()
         {
             try
             {
+                OutlookApp.NewMail -= OutlookApp_NewMail;
+
                 // Log out and release resources
-                OutlookNamespace.Logoff();
+                OutlookNamespace.Logoff();                
                 System.Runtime.InteropServices.Marshal.ReleaseComObject(OutlookNamespace);
                 System.Runtime.InteropServices.Marshal.ReleaseComObject(OutlookApp);
             }
@@ -123,25 +132,34 @@ namespace MelBox2Email
   
 
         private void OutlookApp_NewMail()
-        {           
+        {
             // Retrieve the emails in the Inbox folder
-            Items emails = inboxFolder.Items; //TEST nur eine Mail
+            Items emails = inboxFolder.Items; // .Items[1]; //TEST nur eine Mail
+            emails.Sort("[ReceivedTime]", true); //true if you want them descending
+
+            Console.WriteLine($"{emails.Count} in Ordner {inboxFolder.Name}");
+            int maxCounter = 3; //TEST
 
             foreach (MailItem email in emails)
             {
                 try
                 {
-                    //nur ungelesene Nachrichten einlesen // Später rausnehmen?
-                    if (email.UnRead == false)
-                        continue;
+                    // max. Anzahl von E-Mail pro Lesevorgang
+                    maxCounter--;
+                    Console.WriteLine(maxCounter);
+                    if (0 > maxCounter)
+                        break;
 
+                    //nur ungelesene Nachrichten einlesen 
+                    //if (email.UnRead == false)                   
+                    //    continue;
+                    
                     email.Recipients.ResolveAll();
-                    string from = email.Sender.PropertyAccessor.GetProperty(PR_SMTP_ADDRESS) as string;
+                    string from = email.SenderEmailAddress; //.PropertyAccessor.GetProperty(PR_SMTP_ADDRESS) as string;
                     string subject = email.Subject;
                     string body = email.Body;
                     List<string> to = GetSMTPAddressForRecipients(email, OlMailRecipientType.olTo);
                     List<string> cc = GetSMTPAddressForRecipients(email, OlMailRecipientType.olCC);
-
 
                     #region in Konsole anzeigen
                     if (Environment.UserInteractive)
@@ -169,7 +187,7 @@ namespace MelBox2Email
                    
 
                     Pipe4.EmailRecieved(pipeEmail);
-                    Thread.Sleep(1000);
+                    Thread.Sleep(2000);
 //#if !DEBUG
                     email.Move(archiveFolder);
 //#endif          
@@ -177,11 +195,14 @@ namespace MelBox2Email
                 catch (System.Exception ex)
                 {
                     // Handle specific exceptions related to email processing
-                    Console.WriteLine("Error processing email: " + ex.Message);
+                    Console.WriteLine("\r\nError processing email:\r\n" + ex);
+                    Thread.Sleep(5000);
                 }
             }
 
         }
+
+
 
         /// <summary>
         /// Liest die E-Mail-Adresse aus dem object MailItem.Address

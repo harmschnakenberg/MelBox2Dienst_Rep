@@ -139,7 +139,7 @@ namespace MelBox2Dienst
         /// </summary>
         public static void CheckOverdueSenders()
         {
-            if (Sql.IsBuisinesTimeNow()) return; //Inaktivität nur zur Geschäftszeit prüfen.
+            if (!Sql.IsBuisinesTimeNow()) return; //Inaktivität nur zur Geschäftszeit prüfen.
 
             DataTable dt = Sql.SelectOverdueCustomers();
 

@@ -12,7 +12,7 @@ namespace MelBox2Dienst
 
        
 
-        public static string Sceleton(string content)
+        public static string Sceleton(string content, string containerclass = "container")
         {
             StringBuilder sb = new StringBuilder();
             #region Head
@@ -66,7 +66,7 @@ namespace MelBox2Dienst
             sb.AppendLine("</nav>");
             #endregion
 
-            sb.AppendLine("<div class='container'>");
+            sb.AppendLine($"<div class='{containerclass}'>");
 
             sb.Append(content);
             
@@ -230,14 +230,13 @@ namespace MelBox2Dienst
                                 <input type='password' class='form-control' id='pwd' placeholder='Passwort' name='pswd' required>
                                
                                 <div class='invalid-feedback'>Eintrag erforderlich</div>
-                              </div>
-                        
+                              </div>                     
                       </div>
 
                           <!-- Modal footer -->
                           <div class='modal-footer'>
                             <button type='submit' class='btn btn-primary'>Login</button>
-                            <button type='submit' class='btn btn-info' formaction='/register'>Registrieren</button>
+                           <!-- <button type='submit' class='btn btn-info' formaction='/register'>Registrieren</button> -->
                             <button type='button' class='btn btn-danger' data-bs-dismiss='modal'>Schließen</button>
                           </div>
                         </form> 
@@ -476,7 +475,7 @@ namespace MelBox2Dienst
         /// </summary>
         /// <param name="dt"></param>
         /// <returns></returns>
-        public static string ServiceForm(DataTable dt)
+        public static string ServiceForm(DataTable dt, bool authorized = true)
         {
             if (dt == null || dt.Rows.Count == 0) return "<span class='badge bg-danger'>Mitarbeiter unbekannt</span>";
 
@@ -487,6 +486,8 @@ namespace MelBox2Dienst
                 " <div class='input-group mb-3'>" +
                 "  <span class='input-group-text'>Name</span>" +
                $"  <input type='text' name='Name' class='form-control' placeholder='Anzeigename des Kollegen' value='{dt.Rows[0]["Name"]}' required>\r\n" +
+                "  <span class='input-group-text'>Passwort</span>" +
+               "  <input type='password' name='Password' pattern='.{3..}' class='form-control'>\r\n" +
                 " </div>\r\n" +
                 " <div class='input-group mb-3'>" +
                 "  <span class='input-group-text'>Kontakt</span>" +
@@ -496,9 +497,9 @@ namespace MelBox2Dienst
                 " </div>\r\n" +
 
                 "<div class='btn-group'>\r\n" +
-                "  <button type='submit' class='btn btn-primary'>Ändern</button>\r\n" +
-                "  <button type='submit' class='btn btn-secondary' formaction='/service/create'>Neu erstellen</button>\r\n" +
-                "  <button type='submit' class='btn btn-secondary' formaction='/service/delete'>Stammdaten l&ouml;schen</button>\r\n" +
+                $"  <button type='submit' class='btn btn-primary{(authorized ? "" : " disabled")}'>Ändern</button>\r\n" +
+                $"  <button type='submit' class='btn btn-secondary{(authorized ? "" : " disabled")}' formaction='/service/create'>Neu erstellen</button>\r\n" +
+                $"  <button type='submit' class='btn btn-secondary{(authorized ? "" : " disabled")}' formaction='/service/delete'>Stammdaten l&ouml;schen</button>\r\n" +
                 "</div>\r\n" +
             "</form>\r\n";
             return form;

@@ -118,42 +118,86 @@ namespace MelBox2Dienst
             _ = TimeSpan.TryParse(form["EndTime"], out TimeSpan endTime);
 
 
-            // TODO: Wenn der Zeitraum mehr als eine Kalenderwoche umfasst, splitten für korrekte Darstellung!
+            // TODO: Wenn der Zeitraum mehr als eine Kalenderwoche umfasst, splitten für korrekte Darstellung!?
 
             #region Bereitschaft aufteilen in Kalenderwochen
             //var days = (endDate - startDate).TotalDays;
 
-            DateTime localStart = startDate;
-            DateTime localEnd = startDate;
+            //DateTime localStart = startDate;
+            //DateTime localEnd = startDate;
 
-            while (localEnd.Date != endDate.Date)
-            {
-                do
-                {
-                    localEnd = localEnd.AddDays(1);
-                }
-                while (localEnd.Date != endDate.Date && localEnd.DayOfWeek != DayOfWeek.Monday);
+            //while (localEnd.Date != endDate.Date)
+            //{
+            //    do
+            //    {
+            //        localEnd = localEnd.AddDays(1);
+            //    }
+            //    while (localEnd.Date != endDate.Date && localEnd.DayOfWeek != DayOfWeek.Monday);
+
+            //    #region Uhrzeit setzen
+            //    //if (localStart.Date == startDate.Date)
+            //    //    localEnd = localEnd.Add(endTime);
+
+            //    //if (localEnd.Date == endDate.Date)
+            //    //    localEnd = localEnd.Add(endTime);
+            //    #endregion
+
+            //    #region Bereitschaft Update oder Neu erstellen
+            //    Dictionary<string, object> args = new Dictionary<string, object>
+            //    {
+            //        { "@Id", form["Id"] },
+            //       // { "@Name", WebUtility.UrlDecode(form["Name"]) },
+            //        { "@ToId", form["ServiceId"] },
+            //        { "@Start", localStart.Add(startTime).ToUniversalTime()  },
+            //        { "@End", localEnd.Add(endTime).ToUniversalTime()  }
+            //    };
+
+            //    if (!Sql.NonQueryAsync(
+            //        @"Update Shift SET 
+            //        Time = DATETIME('now'),
+            //        ToId = @ToId,
+            //        Start = @Start,
+            //        End = @End 
+            //        WHERE Id = @Id;", args))
+            //        _ = Sql.NonQueryAsync(
+            //        @"INSERT INTO Shift ( 
+            //        ToId, 
+            //        Start,
+            //        End 
+            //        ) VALUES (
+            //        @ToId,
+            //        @Start,
+            //        @End
+            //        );", args);
+
+            //    #endregion
+
+            //    localStart = localEnd;
+            //}
+
+            // Log.Info($"Rufbereitschaft {localStart.Add(startTime)} bis {localEnd.Add(endTime)} geändert.");
 
 
-                #region Bereitschaft Update oder Neu erstellen
-                Dictionary<string, object> args = new Dictionary<string, object>
+            #endregion
+
+            #region Bereitschaft Update oder Neu erstellen hne Aufteilung in Kalenderwochen
+            Dictionary<string, object> args = new Dictionary<string, object>
                 {
                     { "@Id", form["Id"] },
-                   // { "@Name", WebUtility.UrlDecode(form["Name"]) },
                     { "@ToId", form["ServiceId"] },
                     { "@Start", startDate.Add(startTime).ToUniversalTime()  },
                     { "@End", endDate.Add(endTime).ToUniversalTime()  }
                 };
 
-                if (!Sql.NonQueryAsync(
-                    @"Update Shift SET 
+            if (!Sql.NonQueryAsync(
+                @"Update Shift SET 
                     Time = DATETIME('now'),
                     ToId = @ToId,
                     Start = @Start,
                     End = @End 
                     WHERE Id = @Id;", args))
-                    _ = Sql.NonQueryAsync(
-                    @"INSERT INTO Shift ( 
+                _ = Sql.NonQueryAsync(
+                @"INSERT INTO Shift ( 
                     ToId, 
                     Start,
                     End 
@@ -163,16 +207,12 @@ namespace MelBox2Dienst
                     @End
                     );", args);
 
-                #endregion
-
-                localStart = localEnd;
-            }
-
+            Log.Info($"Rufbereitschaft {startDate.Add(startTime)} bis {endDate.Add(endTime)} geändert.");
             #endregion
 
 
         }
-               
+
 
         internal static void CreateGuard(Dictionary<string, string> form)
         {
@@ -188,34 +228,59 @@ namespace MelBox2Dienst
             _ = TimeSpan.TryParse(form["EndTime"], out TimeSpan endTime);
 
 
-            // TODO: Wenn der Zeitraum mehr als eine Kalenderwoche umfasst, splitten für korrekte Darstellung!
+            // TODO: Wenn der Zeitraum mehr als eine Kalenderwoche umfasst, splitten für korrekte Darstellung!?
 
             #region Bereitschaft aufteilen in Kalenderwochen
-            var days = (endDate - startDate).TotalDays;
+            //var days = (endDate - startDate).TotalDays;
 
-            DateTime localStart = startDate;
-            DateTime localEnd = startDate;
+            //DateTime localStart = startDate;
+            //DateTime localEnd = startDate;
 
-            while (localEnd.Date != endDate.Date)
-            {
-                do
+            //while (localEnd.Date != endDate.Date)
+            //{
+            //    do
+            //    {
+            //        localEnd = localEnd.AddDays(1);
+            //    }
+            //    while (localEnd.Date != endDate.Date && localEnd.DayOfWeek != DayOfWeek.Monday);
+
+            //    #region Bereitschaft Update
+            //    Dictionary<string, object> args = new Dictionary<string, object>
+            //    {
+            //        { "@ToId", form["ServiceId"] },
+            //        { "@Start", localStart.Add(startTime).ToUniversalTime()  },
+            //        { "@End", localEnd.Add(endTime).ToUniversalTime()  }
+            //    };
+
+            //    _ = Sql.NonQueryAsync(
+            //        @"INSERT INTO Shift ( 
+            //        ToId, 
+            //        Start,
+            //        End 
+            //        ) VALUES (
+            //        @ToId,
+            //        @Start,
+            //        @End
+            //        );", args);
+            //    #endregion
+
+            //    localStart = localEnd;
+            //}
+
+            //Log.Info($"Rufbereitschaft {localStart.Add(startTime)} bis {localEnd.Add(endTime)} erstellt.");
+
+            #endregion
+
+            #region Bereitschaft Update ohne Aufteilung in Kalenderwochen
+            Dictionary<string, object> args = new Dictionary<string, object>
                 {
-                    localEnd = localEnd.AddDays(1);
-                }
-                while (localEnd.Date != endDate.Date && localEnd.DayOfWeek != DayOfWeek.Monday);
-
-
-                #region Bereitschaft Update
-                Dictionary<string, object> args = new Dictionary<string, object>
-                {
-
                     { "@ToId", form["ServiceId"] },
                     { "@Start", startDate.Add(startTime).ToUniversalTime()  },
                     { "@End", endDate.Add(endTime).ToUniversalTime()  }
                 };
 
-                _ = Sql.NonQueryAsync(
-                    @"INSERT INTO Shift ( 
+            _ = Sql.NonQueryAsync(
+                @"INSERT INTO Shift ( 
                     ToId, 
                     Start,
                     End 
@@ -224,14 +289,7 @@ namespace MelBox2Dienst
                     @Start,
                     @End
                     );", args);
-                #endregion
-
-                localStart = localEnd;
-            }
-
             #endregion
-
-
         }
 
 
@@ -252,11 +310,19 @@ namespace MelBox2Dienst
             _ = Sql.NonQueryAsync(
                 @"DELETE FROM Shift  
                 WHERE Id = @Id;", args);
-                  
-                #endregion
 
-            }
+            #endregion
+
+            _ = DateTime.TryParse(form["StartDate"], out DateTime startDate);
+            _ = TimeSpan.TryParse(form["StartTime"], out TimeSpan startTime);
+            _ = DateTime.TryParse(form["EndDate"], out DateTime endDate);
+            _ = TimeSpan.TryParse(form["EndTime"], out TimeSpan endTime);
+
+            Log.Info($"Rufbereitschaft {startDate.Add(startTime)} bis {endDate.Add(endTime)} gelöscht.");
+        }
 
         #endregion
+
+
     }
 }

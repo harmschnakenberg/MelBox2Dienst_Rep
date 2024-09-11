@@ -1,4 +1,5 @@
 ﻿using System;
+using System.CodeDom;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -25,8 +26,22 @@ namespace MelBox2Dienst
         {
             try
             {
+                #region Absender ermitteln
+                uint customerId = Sql.GetCustomerId(sms);
+                if (customerId < 1) //Absender unbekannt
+                {
+                    customerId = Sql.CreateCustomer(sms);
+                    Log.Info($"SMS empfangen von unbekanntem Absender [{customerId}] {sms.Phone}");
+                    return false; //Unbekannte Absender werden nicht weiter verarbeitet
+                }
+                #endregion
+
+                #region Empfang protokollieren
+                uint messageId = Sql.SelectMessageIdByContent(sms.Content);
+                Sql.CreateRecievedMessage(customerId, messageId, sms.Time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss"));
+                #endregion
+
                 #region Soll diese SMS weitergeleitet werden?
-                uint messageId = Sql.CreateRecievedMessage(sms);
                 bool isBuisinessTime = IsBuisinesTimeNow();
                 bool isBlocked = Sql.IsMessageBlocked(messageId);
                 bool isAlifeMessage = IsAlifeMessage(sms.Content);
@@ -62,11 +77,11 @@ namespace MelBox2Dienst
                 #endregion
 
                 #region SMS versenden                
-                if (!(isBlocked || isBuisinessTime || isAlifeMessage || isTestSms))
+                if (!(isBlocked || isBuisinessTime || isAlifeMessage || isTestSms || messageId < 1))
                     Pipe1.SendSms(currentGuards.Select(x => x?.Phone).Where(y => y?.Length > 3).ToList(), sms, messageId);
                 #endregion
 
-                return messageId > 0;
+                return true;
             }
             catch (Exception ex)
             {
@@ -93,23 +108,48 @@ namespace MelBox2Dienst
 
             try
             {
-                uint messageId = Sql.CreateRecievedMessage(emailIn);
-                bool isBlocked = Sql.IsMessageBlocked(messageId);
+                #region Absender ermitteln
+                uint customerId = Sql.GetCustomerId(emailIn);
+                if (customerId < 1) //Absender unbekannt
+                {
+                    customerId = Sql.CreateCustomer(emailIn);
+                    Log.Info($"E-Mail empfangen von unbekanntem Absender [{customerId}] {emailIn.From}");
+                    return false; //Unbekannte Absender werden nicht weiter verarbeitet
+                }
+                #endregion
+
+                #region Empfang protokollieren
+                uint messageId = Sql.SelectMessageIdByContent(emailIn.Body);
+                Sql.CreateRecievedMessage(customerId, messageId, DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+                #endregion
 
                 #region Finde heraus, wer Bereitschaft hat
                 List<Service> permanentGuards = Sql.SelectPermamanentGuards();
                 List<Service> currentGuards = Sql.SelectCurrentGuards();
+                #endregion
+
+                #region Soll diese SMS weitergeleitet werden?
+                bool isBuisinessTime = IsBuisinesTimeNow();
+                bool isBlocked = Sql.IsMessageBlocked(messageId);
+                bool isAlifeMessage = IsAlifeMessage(emailIn.Body);
+                #endregion
 
                 //if (!isBlocked) //wieder raus genommen
                 //    permanentGuards.AddRange(currentGuards); //Wenn Bereitschaft eine E-Mail-Adresse angegeben hat, auch dahin schicken
-                #endregion
 
                 #region Email versenden
                 string body = $"Email Absender\t>{emailIn.From}<\r\n" +
                     $"Text\t>{emailIn.Body.Replace("\r\n", " ")}<\r\n\r\n";
 
+
+
                 if (isBlocked)
                     body += "Keine Weiterleitung an Bereitschaftshandy da gesperrt.\r\n";
+                else if (isAlifeMessage)
+                    body += "Keine Weiterleitung der Routinemeldung an Bereitschaftshandy.\r\n";
+                else if (isBuisinessTime)
+                    body += "Keine Weiterleitung an Bereitschaftshandy während der Geschäftszeit.\r\n";
+
 
                 string subject = emailIn.Body.Length > 32 ? emailIn.Body.Substring(0, 32) : emailIn.Body;
 
@@ -121,11 +161,11 @@ namespace MelBox2Dienst
                 #region SMS versenden
                 Sms smsOut = new Sms(-1, DateTime.Now, "", RemoveUmlauts(emailIn.Body).Substring(0, Math.Min(emailIn.Body.Length, 160)));
 
-                if (!isBlocked)
+                if (!(isBlocked || isBuisinessTime || isAlifeMessage || messageId < 1))
                     Pipe1.SendSms(currentGuards.Select(x => x.Phone).Where(y => y?.Length > 3).ToList(), smsOut, messageId);
                 #endregion
 
-                return messageId > 0;
+                return true;
             }
             catch (Exception ex)
             {
@@ -192,17 +232,23 @@ namespace MelBox2Dienst
         /// </summary>
         /// <param name="sms">Empfangene Nachricht</param>
         /// <returns>Id des Inhalts der Nachricht (Message.Id)</returns>
-        internal static uint CreateRecievedMessage(Sms sms)
+        internal static void CreateRecievedMessage(uint customerId, uint messageId, string smsTime)
         {
             #region Absender protokollieren und identifizieren
-            uint customerId = Sql.GetCustomerId(sms);
-            uint messageId = Sql.SelectMessageIdByContent(sms.Content);
+            //uint customerId = Sql.GetCustomerId(sms);
+
+            //if (customerId < 1) //Absender unbekannt
+            //{
+            //    customerId = Sql.CreateCustomer(sms);
+            //    return 0;
+            //}
+            //uint messageId = Sql.SelectMessageIdByContent(sms.Content);
             #endregion
 
             #region Sms-Empfang protokollieren
             Dictionary<string, object> args = new Dictionary<string, object>
                 {
-                    { "@Time", sms.Time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")},
+                    { "@Time", smsTime }, // sms.Time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")},
                     { "@SenderId", customerId},
                     { "@ContentId", messageId }
                 };
@@ -214,7 +260,7 @@ namespace MelBox2Dienst
             //_ = uint.TryParse(Sql.SelectValue(query, args)?.ToString(), out uint recivedId);
             #endregion
 
-            return messageId;
+            //return messageId;
         }
 
         /// <summary>
@@ -222,30 +268,34 @@ namespace MelBox2Dienst
         /// </summary>
         /// <param name="email">Empfangene Nachricht</param>
         /// <returns>Id des Inhalts der Nachricht (Message.Id)</returns>
-        internal static uint CreateRecievedMessage(Email email)
-        {
-            #region Absender protokollieren und identifizieren
-            uint customerId = Sql.GetCustomerId(email);
-            uint messageId = Sql.SelectMessageIdByContent(email.Body);
-            #endregion
+        //internal static uint CreateRecievedMessage(Email email)
+        //{
+        //    #region Absender protokollieren und identifizieren
+        //    uint customerId = Sql.GetCustomerId(email);
 
-            #region Sms-Empfang protokollieren
-            Dictionary<string, object> args = new Dictionary<string, object>
-                {
-                    { "@Time", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")},
-                    { "@SenderId", customerId},
-                    { "@ContentId", messageId }
-                };
+        //    if (customerId < 1) //Absender unbekannt
+        //        Sql.Create
 
-            const string query = "INSERT INTO Recieved (Time, SenderId, ContentId) VALUES (@Time, @SenderId, @ContentId);";
-            //"SELECT MAX(Id) FROM Recieved;";
+        //    uint messageId = Sql.SelectMessageIdByContent(email.Body);
+        //    #endregion
 
-            _ = Sql.NonQueryAsync(query, args);
-            //_ = uint.TryParse(Sql.SelectValue(query, args)?.ToString(), out uint recivedId);
-            #endregion
+        //    #region Sms-Empfang protokollieren
+        //    Dictionary<string, object> args = new Dictionary<string, object>
+        //        {
+        //            { "@Time", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")},
+        //            { "@SenderId", customerId},
+        //            { "@ContentId", messageId }
+        //        };
 
-            return messageId;
-        }
+        //    const string query = "INSERT INTO Recieved (Time, SenderId, ContentId) VALUES (@Time, @SenderId, @ContentId);";
+        //    //"SELECT MAX(Id) FROM Recieved;";
+
+        //    _ = Sql.NonQueryAsync(query, args);
+        //    //_ = uint.TryParse(Sql.SelectValue(query, args)?.ToString(), out uint recivedId);
+        //    #endregion
+
+        //    return messageId;
+        //}
 
         /// <summary>
         /// Prüft ob jetzt Geschäftszeit ist.
@@ -261,9 +311,11 @@ namespace MelBox2Dienst
                 case DayOfWeek.Sunday:
                     return false; //Wochenende
                 case DayOfWeek.Friday:
-                    return !(now.Hour < 7 || now.Hour >= 15); //Freitag außerhalb der Geschäftszeiten
+                    if(now.Hour < 7 || now.Hour >= 1)
+                        return false; //Freitag außerhalb der Geschäftszeiten
+                    break;
                 default:
-                    if (!(now.Hour < 7 || now.Hour >= 17)) //Mo-Do außerhalb der Geschäftszeiten
+                    if (now.Hour < 7 || now.Hour >= 17) //Mo-Do außerhalb der Geschäftszeiten
                         return false;
                     break;
             }

@@ -27,10 +27,11 @@ namespace MelBox2Email
             public const string SmsRecieved = "SmsRecieved";
             public const string EmailSend = "EmailSend";
             public const string EmailRecieved = "EmailRecieved";
+            public const string EmailStatus = "EmailStatus";
             public const string CallRelay = "CallRelay";
             public const string CallRecieved = "CallRecieved";
             public const string GsmStatus = "GsmStatus";
-            public const string Error = "ERROR";
+            public const string LastError = "LastError";
         }
         #endregion
 
@@ -191,7 +192,7 @@ namespace MelBox2Email
         /// <param name="msg"></param>
         internal static async void GsmErrorOccuredAsync(string msg)
         {
-            _ = await Send(PipeName.MelBox2Service, Verb.Error, msg);
+            _ = await Send(PipeName.MelBox2Service, Verb.LastError, msg);
             //Log.Error(msg);
         }
 
@@ -200,6 +201,18 @@ namespace MelBox2Email
             
             _ = await Send(PipeName.MelBox2Service, Verb.EmailRecieved, JsonSerializer.Serialize(email));
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="report"></param>
+        internal async static void SendEmailStatus(string property, string status)
+        {            
+            string query = JsonSerializer.Serialize(new Tuple<string, DateTime, string>(property, DateTime.Now, status));
+            _ = await Pipe4.Send(PipeName.MelBox2Service, Verb.EmailStatus, query);
+            //Keine Rückantwort erwartet
+        }
+
 
         #endregion
     }

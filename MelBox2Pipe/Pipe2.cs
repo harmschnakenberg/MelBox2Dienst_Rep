@@ -30,7 +30,7 @@ namespace MelBox2Pipe
             public const string EmailRecieved = "EmailRecieved";
             public const string CallRelay = "CallRelay";
             public const string CallRecieved = "CallRecieved";
-            public const string Error = "ERROR";
+            public const string LastError = "LastError";
         }
         #endregion
 
@@ -159,7 +159,7 @@ namespace MelBox2Pipe
                     string confirmedRelayPhone = desiredCallRelayPhone;// "+4987654321";//Simulierte aktuelle Rufumleitung
                     //Antwort: Aus dem GSM-Modem ausgelesene, aktive Nummer für Rufumleitung.
                     return Answer(Verb.CallRelay, confirmedRelayPhone);
-                case Verb.Error:
+                case Verb.LastError:
                     Console.WriteLine("Ein Fehler wurde zurückgegeben für:\r\n\t" + arg);
 
                     return null;

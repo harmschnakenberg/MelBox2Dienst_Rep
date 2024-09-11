@@ -154,27 +154,25 @@ namespace MelBox2Dienst
             if (encryped_pw?.Length < 3)
                 return;
 
-            const string query = @"INSERT INTO Service (Name, Password ) VALUES (@Name, @Password)
-                                    SELECT Id, Name FROM Service WHERE Name = @Name AND Password = @Password;";
+            const string query = @"UPDATE Service SET Password = @Password WHERE Name = @Name;
+                                   SELECT Id, Name FROM Service WHERE Name = @Name AND Password = @Password;";
 
             Dictionary<string, object> args = new Dictionary<string, object>
                 {
                     { "@Name", name },
-                    { "@Password", "_"  +encryped_pw } // Vorangestelltes Zeichen muss beim Freischalten durch den Admin wieder entfernt werden.
+                    { "@Password", "_" + encryped_pw } // Vorangestelltes Zeichen muss beim Freischalten durch den Admin wieder entfernt werden.
                 };
 
             _ = Sql.NonQueryAsync(query, args);
         }
 
 
-        internal static uint CheckCredentials(string name, string password)
+        internal static KeyValuePair<string, Service> CheckCredentials(string name, string password)
         {
-            //try
-            //{
+            
             string encryped_pw = Encrypt(password);
 
-
-            const string query = "SELECT Id FROM Service WHERE Name = @Name AND Password = @Password;";
+            const string query = "SELECT Id, Name, Phone, Email FROM Service WHERE Name = @Name AND Password = @Password;";
 
             Dictionary<string, object> args = new Dictionary<string, object>
                 {
@@ -182,31 +180,12 @@ namespace MelBox2Dienst
                     { "@Password", encryped_pw }
                 };
 
-            _ = uint.TryParse(SelectValue(query, args)?.ToString(), out uint serviceid);
+            DataTable dt = SelectDataTable(query, args);
 
-            return serviceid;
-
-            //if (service.Id > 0)
-            //{
-            //    while (Server.LogedInHash.Count > 10) //Max. 10 Benutzer gleichzetig eingelogged
-            //    {
-            //        Server.LogedInHash.Remove(Server.LogedInHash.Keys.GetEnumerator().Current);
-            //    }
-
-            //    string guid = Guid.NewGuid().ToString("N");
-
-            //    Server.LogedInHash.Add(guid, p);
-
-            //    return guid;
-            //}
-            //}
-            //catch (Exception)
-            //{
-            //    throw;
-            //    // Was tun?
-            //}
-
-            //return new Service();
+            if (dt.Rows.Count > 0)                
+                return new KeyValuePair<string, Service>(Guid.NewGuid().ToString("N"), new Service(dt));
+            else
+                return new KeyValuePair<string, Service>(string.Empty, new Service());
         }
 
         private static string Encrypt(string password)
@@ -215,6 +194,9 @@ namespace MelBox2Dienst
 
             byte[] data = System.Text.Encoding.UTF8.GetBytes(password);
             data = new System.Security.Cryptography.SHA256Managed().ComputeHash(data);
+#if DEBUG
+            Console.WriteLine($"Passwort '{password}' -> '{System.Text.Encoding.UTF8.GetString(data)}'");
+#endif
             return System.Text.Encoding.UTF8.GetString(data);
         }
 
@@ -224,6 +206,7 @@ namespace MelBox2Dienst
         /// <param name="form"></param>
         internal static void CreateService(Dictionary<string, string> form)
         {
+            //Beim neu erstellen kann z.Zt. kein Passwort gesetzt werden!
 #if DEBUG
             foreach (var key in form.Keys)
             {
@@ -249,6 +232,7 @@ namespace MelBox2Dienst
                 $"Name: {args["@Name"]}\r\n" +
                 $"Telefon: {args["@Phone"]}\r\n" +
                 $"E-Mail: {args["@Email"]}\r\n");
+
         }
 
         /// <summary>
@@ -263,7 +247,7 @@ namespace MelBox2Dienst
                 Console.WriteLine(key + "=" + form[key]);
             }
 #endif
-            Dictionary<string, object> args = new Dictionary<string, object>
+            Dictionary<string, object> args1 = new Dictionary<string, object>
             {
                 { "@Id", form["Id"] },
                 { "@Name", WebUtility.UrlDecode(form["Name"]) },
@@ -278,12 +262,30 @@ namespace MelBox2Dienst
                 Phone = @Phone,
                 Email = @Email,
                 Color = @Color  
-                WHERE Id = @Id;", args);
+                WHERE Id = @Id;", args1);
 
             Log.Info($"Service-Kollege geändert:\r\n" +
-                $"Name: {args["@Name"]}\r\n" +
-                $"Telefon: {args["@Phone"]}\r\n" +
-                $"E-Mail: {args["@Email"]}\r\n");
+                $"Name: {args1["@Name"]}\r\n" +
+                $"Telefon: {args1["@Phone"]}\r\n" +
+                $"E-Mail: {args1["@Email"]}\r\n");
+
+            #region Passwort ändert
+            if (form["Password"].Length > 3)
+            {
+                string password = WebUtility.UrlDecode(form["Password"]).Replace("<", "&lt;").Replace(">", "&gt;");
+
+                Dictionary<string, object> args2 = new Dictionary<string, object>
+                {
+                    { "@Id", form["Id"] },
+                    { "@Password", Encrypt(password) }               
+                };
+
+                _ = Sql.NonQueryAsync(
+                @"Update Service SET 
+                Password = @Password   
+                WHERE Id = @Id;", args2);
+            }
+            #endregion
         }
 
         /// <summary>
@@ -317,6 +319,7 @@ namespace MelBox2Dienst
 
     public class Service
     {
+        public Service() { }
 
         public Service(DataTable dt)
         {
@@ -333,7 +336,6 @@ namespace MelBox2Dienst
             Phone = row["Phone"].ToString();
             Email = row["Email"].ToString();
         }
-
 
         public uint Id { get; set; }
         public string Name { get; set; }

@@ -34,11 +34,12 @@ namespace MelBox2Dienst
             public const string SmsRecieved = "SmsRecieved";
             public const string EmailSend = "EmailSend";
             public const string EmailRecieved = "EmailRecieved";
+            public const string EmailStatus = "EmailStatus";
             public const string CallRelay = "CallRelay";
             public const string CallRecieved = "CallRecieved";
             public const string GsmStatus = "GsmStatus";
             public const string GsmReinit = "GsmReinit";
-            public const string Error = "ERROR";
+            public const string LastError = "LastError";
         }
         #endregion
 
@@ -92,6 +93,9 @@ namespace MelBox2Dienst
             catch (Exception ex)
             {
                 Log.Error("Fehler StartPipeServer2()\r\n\r\n" + ex.ToString());
+
+                if (perpetual)
+                    StartPipeServer(pipeName, true);
             }
      
 #if DEBUG
@@ -141,6 +145,7 @@ namespace MelBox2Dienst
     internal partial class Pipe1
     {
         public static SortedDictionary<string, Tuple<DateTime, string>> GsmStatus { get; set; } = new SortedDictionary<string, Tuple<DateTime, string>>();
+        public static SortedDictionary<string, Tuple<DateTime, string>> EmailStatus { get; set; } = new SortedDictionary<string, Tuple<DateTime, string>>();
 
         #region Anfrage auswerten
         /// <summary>
@@ -168,7 +173,7 @@ namespace MelBox2Dienst
                     if (Sql.MessageRecieveAndRelay(smsRec))
                         return Answer(Verb.SmsRecieved, arg); //Erfolg: sende die Anfrage ungverändert zurück
                     else
-                        return Answer(Verb.Error, arg);
+                        return Answer(Verb.LastError, arg);
                 case Verb.SmsSend:
                     return Answer(verb, "nicht implementiert");
                 case Verb.ReportRecieved:
@@ -179,7 +184,7 @@ namespace MelBox2Dienst
                     if (Sql.UpdateSentSms(report))
                         return Answer(Verb.ReportRecieved, arg); //Erfolg: sende die Anfrage ungverändert zurück
                     else
-                        return Answer(Verb.Error, arg);
+                        return Answer(Verb.LastError, arg);
                 case Verb.CallRelay:
                     //Antwort auf Anfrage zum Ändern der Rufumleitung
                     string actualCallRelayPhone = arg;
@@ -212,16 +217,21 @@ namespace MelBox2Dienst
                         Log.Error($"ParseQuery() mit {verb}: Fehler:\r\n" + ex);
                     }
 
-                    if (!IsEmailUsed)
-                        Sql.CreateRecievedMessage(email); //nur Empfang protollieren
-                    else if (Sql.MessageRecieveAndRelay(email))
+                    //if (!IsEmailUsed)
+                    //    Sql.CreateRecievedMessage(email); //nur Empfang protollieren
+                    //else 
+                    if (Sql.MessageRecieveAndRelay(email))
                         return line; //Erfolg: sende die Anfrage ungverändert zurück
                     
-                        return Answer(Verb.Error, arg);
+                        return Answer(Verb.LastError, arg);
                 case Verb.GsmStatus:                    
                     UpdateGsmStatus(JsonSerializer.Deserialize<Tuple<string, DateTime, string>>(arg));
                     //Keine Rückantwort auf der Gegenseite erwartet
                     return Answer(Verb.GsmStatus, string.Empty);
+                case Verb.EmailStatus:
+                    UpdateEmailStatus(JsonSerializer.Deserialize<Tuple<string, DateTime, string>>(arg));
+                    //Keine Rückantwort auf der Gegenseite erwartet
+                    return Answer(Verb.EmailStatus, string.Empty);
                 default:
                     return Answer(verb, "unbekannt " + arg);
 
@@ -259,6 +269,15 @@ namespace MelBox2Dienst
                 Pipe1.GsmSignalQuality = gsmStatus.Item3;
             }
         }
+
+        private static void UpdateEmailStatus(Tuple<string, DateTime, string> emailStatus)
+        {
+            if (!EmailStatus.Keys.Contains(emailStatus.Item1))
+                EmailStatus.Add(emailStatus.Item1, new Tuple<DateTime, string>(emailStatus.Item2, emailStatus.Item3));
+            else
+                EmailStatus[emailStatus.Item1] = new Tuple<DateTime, string>(emailStatus.Item2, emailStatus.Item3);
+        }
+
 
         #endregion
 

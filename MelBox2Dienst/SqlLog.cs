@@ -27,12 +27,12 @@ namespace MelBox2Dienst
 
             Dictionary<string, object> args = new Dictionary<string, object>
             {
-                { "@Time", date.ToString("yyyy-MM-dd") }
+                { "@Time", date.ToLocalTime().ToString("yyyy-MM-dd") }
             };
 
             return Sql.SelectDataTable(
                 @"SELECT 
-                    Time AS Zeit,
+                    datetime(Time,'localtime') AS Zeit,
                     Prio,
                     Content AS Inhalt
                     FROM Log
@@ -87,7 +87,7 @@ namespace MelBox2Dienst
             };
 
             _ = NonQueryAsync(@"INSERT INTO NetworkQuality (Quality) VALUES (@Quality);  
-                DELETE FROM NetworkQuality WHERE Id < (SELECT MAX(Id) - 1000 FROM NetworkQuality);", args); //max. 1000 Einträge
+                DELETE FROM NetworkQuality WHERE Time < date('now', '-2 day');;", args); //max. 48 Std.
         }
 
         /// <summary>

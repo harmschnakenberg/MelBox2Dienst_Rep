@@ -32,7 +32,7 @@ namespace MelBox2Gsm
             public const string CallRecieved = "CallRecieved";
             public const string GsmStatus = "GsmStatus";
             public const string GsmReinit = "GsmReinit";
-            public const string Error = "ERROR";
+            public const string LastError = "LastError";
         }
         #endregion
 
@@ -257,7 +257,7 @@ namespace MelBox2Gsm
         /// <param name="msg"></param>
         internal static async void GsmErrorOccuredAsync(string msg)
         {
-            _ = await Send(PipeName.MelBox2Service, Verb.Error, msg);
+            _ = await Send(PipeName.MelBox2Service, Verb.LastError, msg);
             Log.Error(msg);
         }
 

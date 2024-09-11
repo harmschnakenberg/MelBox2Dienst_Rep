@@ -23,7 +23,7 @@ namespace MelBox2Gsm
             if (ports?.Length == 0)
             {
                 Program.Log.Error("Es wurden keine COM-Ports erkannt.");
-                Pipe3.SendGsmStatus(Pipe3.Verb.Error, "Es wurden keine COM-Ports (GSM-Modem) erkannt.");
+                Pipe3.SendGsmStatus(Pipe3.Verb.LastError, "Es wurden keine COM-Ports (GSM-Modem) erkannt.");
                 base.Close();
                 return;
             }
@@ -81,7 +81,9 @@ namespace MelBox2Gsm
                 Console.WriteLine(errorText);
                 base.Close();
                 Log.Error(errorText);
-                Pipe3.SendGsmStatus(Pipe3.Verb.Error, errorText);
+                Pipe3.SendGsmStatus(Pipe3.Verb.LastError, errorText);
+
+                RestartUsbDevice(@"USB\VID_0681&PID_0034\5&376aba2d&0&4"); //TEST
             }
         }
         

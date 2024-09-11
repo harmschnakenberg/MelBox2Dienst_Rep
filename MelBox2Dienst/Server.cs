@@ -20,6 +20,8 @@ namespace MelBox2Dienst
     {
         private static IRestServer RestServer { get; set; }
 
+        internal static Dictionary<string, Service> LogedInUser { get; set; } = new Dictionary<string, Service>();
+
         public static void Start()
         {
             if (RestServer != null && RestServer.IsListening) return;
@@ -226,6 +228,16 @@ namespace MelBox2Dienst
 
         #endregion
 
+        internal static Service GetLogedInUser(IHttpContext context)
+        {
+            
+            string guid = context.Request.Cookies["auth"].Value;
+
+            if (Server.LogedInUser.ContainsKey(guid))
+                return Server.LogedInUser[guid];
+            
+            return null;
+        }
 
     }
 }

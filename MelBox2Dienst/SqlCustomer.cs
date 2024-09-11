@@ -98,7 +98,7 @@ namespace MelBox2Dienst
         {
             //Erst nach Keyword suchen, da Phone nicht eindeutig sein kann.
             const string query1 = "SELECT Id FROM Customer WHERE Email = @Email; ";
-            const string query2 = "INSERT INTO Customer (Name, Email) VALUES (@Email, @Email); ";
+           // const string query2 = "INSERT INTO Customer (Name, Email) VALUES (@Email, @Email); ";
 
             Dictionary<string, object> args = new Dictionary<string, object>
             {
@@ -107,26 +107,59 @@ namespace MelBox2Dienst
 
             _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out uint customerId);
 
-            if (customerId == 0) // Nicht gefunden
+            //if (customerId == 0) // Nicht gefunden
+            //{
+            //    Sql.NonQueryAsync(query2, args);
+            //    _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out customerId);
+            //}
+
+            return customerId;
+        }
+
+        internal static uint CreateCustomer(Sms sms)
+        {
+
+            const string query2 = @"INSERT INTO Customer (Name, Phone, KeyWord) VALUES ('Neu_' || @KeyWord, @Phone, @KeyWord); 
+                                    SELECT MAX(Id) FROM Customer;";
+
+            Dictionary<string, object> args = new Dictionary<string, object>
             {
-                Sql.NonQueryAsync(query2, args);
-                _ = uint.TryParse(Sql.SelectValue(query1, args)?.ToString(), out customerId);
-            }
+                { "@Phone", sms.Phone },
+                { "@KeyWord", GetKeyWord(sms.Content) }
+            };
+                
+                _ = uint.TryParse(Sql.SelectValue(query2, args)?.ToString(), out uint customerId);
+            
+            return customerId;
+        }
+
+        internal static uint CreateCustomer(Email email)
+        {
+
+            const string query2 = "INSERT INTO Customer (Name, Email) VALUES (@Email, @Email); SELECT MAX(Id) FROM Customer;";
+
+            Dictionary<string, object> args = new Dictionary<string, object>
+            {
+                { "@Email", email.From }
+            };
+
+            _ = uint.TryParse(Sql.SelectValue(query2, args)?.ToString(), out uint customerId);
 
             return customerId;
         }
 
 
-/// <summary>
-/// Aus altem MelBox:
-///   AbsKey: in AbsKey kann ein Schlüsselwort eingetragen werden, um Absender die
-///   keine Nummern in gesendeten SMS'en übermitteln (z.B. D2) zu unterscheiden.
-///   Wird in den ersten 10 Zeichen ein gleichnamiges Wort VOR EINEM KOMMA gefunden
-///   wird die SMS dem Absender AbsID zugeordnet.
-/// </summary>
-/// <param name="message">Inhalt einer Nachricht</param>
-/// <returns>Keyword in Kleinschreibung</returns>
-private static string GetKeyWord(string message)
+
+        /// <summary>
+        /// Aus altem MelBox:
+        ///   AbsKey: in AbsKey kann ein Schlüsselwort eingetragen werden, um Absender die
+        ///   keine Nummern in gesendeten SMS'en übermitteln (z.B. D2) zu unterscheiden.
+        ///   Wird in den ersten 10 Zeichen ein gleichnamiges Wort VOR EINEM KOMMA gefunden
+        ///   wird die SMS dem Absender AbsID zugeordnet.
+        /// </summary>
+        /// <param name="message">Inhalt einer Nachricht</param>
+        /// <returns>Keyword in Kleinschreibung</returns>
+        private static string GetKeyWord(string message)
 {
 // char[] split = new char[] { ' ', ',', '-', '.', ':', ';' };
 char[] split = new char[] { ',' };

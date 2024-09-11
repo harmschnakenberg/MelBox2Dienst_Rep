@@ -44,6 +44,21 @@ namespace MelBox2Gsm
 #endif
         }
 
+        //TEST USB-Device programmwiese "Abziehen und neu anstecken"
+        //Quelle: https://stackoverflow.com/questions/71303350/executing-pnputil-commands-via-c-sharp
+        internal static void RestartUsbDevice(string deviceId = @"USB\VID_0681&PID_0034\5&376aba2d&0&4")
+        {
+            using (var process = new System.Diagnostics.Process())
+            {
+                System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo();
+                startInfo.FileName = @"C:\Windows\System32\pnputil.exe";
+                startInfo.Arguments = $"/restart-device \"{deviceId}\"";
+                startInfo.Verb = "runas";
+                process.StartInfo = startInfo;
+                process.Start();
+            }
+        }
+
 
         internal static class Log
         {

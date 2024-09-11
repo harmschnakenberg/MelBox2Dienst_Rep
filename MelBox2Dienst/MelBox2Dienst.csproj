@@ -223,6 +223,7 @@
     <Compile Include="RoutesBlockPolicy.cs" />
     <Compile Include="RoutesMasterData.cs" />
     <Compile Include="Routes.cs" />
+    <Compile Include="RoutesShift.cs" />
     <Compile Include="Server.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="SqlBasic.cs" />

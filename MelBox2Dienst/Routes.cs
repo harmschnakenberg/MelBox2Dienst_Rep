@@ -16,6 +16,7 @@ namespace MelBox2Dienst
     [RestResource]
     internal partial class Routes
     {
+        #region Postein-/ausgang
 
         /// <summary>
         /// Tabelle Empfangene Nachrichten
@@ -73,7 +74,7 @@ namespace MelBox2Dienst
                 #endregion
             }
 
-            await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
+            await context.Response.SendResponseAsync(Html.Sceleton(html, "container-fluid")).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -111,6 +112,40 @@ namespace MelBox2Dienst
             await context.Response.SendResponseAsync(html).ConfigureAwait(false);
         }
 
+
+        [RestRoute("Get", "/overdue")]
+        public static async Task OverdueRoute(IHttpContext context)
+        {
+            DataTable dt = Sql.SelectOverdueCustomers();
+            string html = "<h4>Meldeweg&uuml;berwachung</h4>";
+
+            if (dt.Rows.Count == 0)
+                html += "<div class='alert alert-success alert-dismissible'>\r\n" +
+                    "  <button type='button' class='btn-close' data-bs-dismiss='alert'></button>" +
+                    "  <strong>Kein Handlungsbedarf</strong> Alle überwachten Absender sind aktiv.\r\n</div>";
+            else
+                html += "<div class='alert alert-danger'>\r\n" +
+                    "  <strong>Handlungsbedarf!</strong> Diese Absender haben innerhalb der maximalen Inaktivitätszeit keine Meldung abgesetzt:<br/>" +
+                    "  <strong>Meldeweg prüfen!</strong> <br/>" +
+                    "  <ol>" +
+                    "   <li>Störweiterleitung vor Ort eingeschaltet?</li>" +
+                    "   <li>Testmeldung über Visu erzeugen und Empfang prüfen</li>" +
+                    "   <li>Bei E-Mail: Kunden-IT informieren</li>" +
+                    "   <li>Bei SMS: GSM-Modem prüfen. Mobilfunkempfang ok?</li> " +
+                    "</ol>\r\n" +
+                    Html.ConvertDataTable(dt) +
+                    "</div>";
+
+            html += "<hr/><h4>&Uuml;berwachte Absender:</h4>" +
+            Html.ConvertDataTable(
+                Sql.SelectWatchedCustomers(),
+                new Dictionary<string, string>() { { "Id", "customer" } }
+                );
+
+            await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
+        }
+
+
         [RestRoute("Get", "/log")]
         public static async Task Log(IHttpContext context)
         {
@@ -143,82 +178,9 @@ namespace MelBox2Dienst
             await context.Response.SendResponseAsync(html).ConfigureAwait(false);
         }
 
+        #endregion
 
-        [RestRoute("Get", "/guard")]
-        public static async Task GuradOverview(IHttpContext context)
-        {           
-            string html = string.Empty;
-
-            #region Filter setzen            
-            DataTable dataTable;// = new DataTable();
-            if (!context.Request.QueryString.HasKeys())
-            {
-                html += "<h4>Rufbereitschaft</h4>" +
-                        $"<div class='container'>Rufannahme geht zurzeit an <span class='badge bg-secondary'>{Sql.CallRelayPhone}</span></div>" +
-                        $"<div class='container'>{(Sql.IsBuisinesTimeNow() ? "keine SMS-Weiterleitung während der Geschäftszeiten" : "SMS-Weiterleizung an die Rufbereitschaft aktiv")}</div>";
-
-                dataTable = Sql.SelectAllGuards();
-                html += Html.GuardCalender(dataTable);
-            }
-            else if (uint.TryParse(context.Request.QueryString.Get("id"), out uint shiftId))
-            {
-                dataTable = Sql.SelectGuardById(shiftId);
-                html += Html.GuardFormUpdate(dataTable);
-            }
-            else if (context.Request.QueryString.Get("datum").Length > 0 && DateTime.TryParse(context.Request.QueryString.Get("datum"), out DateTime date))
-            {                
-                Console.WriteLine("Neue Bereitschaft erstellen ab " + date);
-
-                if (date.CompareTo(DateTime.Now.AddYears(-10)) < 0) date = DateTime.Now.Date; //Älter als 10 Jahre = ungültig
-                if (date.CompareTo(DateTime.Now) < 0) date = DateTime.Now.Date; //Die Vergangenheit kann nicht geändert werden
-
-                Console.WriteLine("Rufe auf: GuardFormNew()");
-                html += Html.GuardFormNew(date, 1); //TODO: Übergabe der Id der Service-Person
-            }
-
-            #endregion
-            //#if DEBUG
-            //            Console.WriteLine(date);
-            //#endif
-
-            await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Ändert die Stammdaten eines Kunden in der Datenbank von einem Formular
-        /// </summary>
-        /// <param name="context"></param>
-        /// <returns></returns>
-        [RestRoute("Post", "/guard/update")]
-        public async Task UpdateGuard(IHttpContext context)
-        {
-            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
-            Sql.UpdateGuard(formContent);
-
-            context.Request.QueryString.Add("id", formContent["Id"]);
-            await GuradOverview(context);
-        }
-
-        [RestRoute("Post", "/guard/create")]
-        public async Task CreateGuard(IHttpContext context)
-        {
-            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
-            Sql.CreateGuard(formContent);
-
-            await GuradOverview(context);
-        }
-
-
-        [RestRoute("Post", "/guard/delete")]
-        public async Task DeleteGuard(IHttpContext context)
-        {
-            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
-            Sql.DeleteGuard(formContent);
-
-            await GuradOverview(context);
-        }
-
-
+        #region GSM-Modem
         [RestRoute("Get", "/gsm")]
         public static async Task GsmRoute(IHttpContext context)
         {        
@@ -233,7 +195,7 @@ namespace MelBox2Dienst
                 html += $"<tr><td>{key}</td><td>{Pipe1.GsmStatus[key].Item1}</td><td>{Pipe1.GsmStatus[key].Item2}</td></tr>";
             }
 
-            html += "</table>";
+            html += "</table>\r\n";
 
             #endregion
 
@@ -292,6 +254,20 @@ namespace MelBox2Dienst
 
             #endregion
 
+
+            #region Tabelle aktuelle Eigenschaften E-Mail-Account
+            html += "<hr/><h4>Status E-Mail</h4><div>Statusmeldungen von E-Mail-Account</div>" +
+                "<table class='table' style='width:100%'>" +
+            "<tr><th>Eigenschaft</th><th>Zeitpunkt</th><th>Wert</th></tr>";
+            foreach (var key in Pipe1.EmailStatus.Keys)
+            {
+                html += $"<tr><td>{key}</td><td>{Pipe1.EmailStatus[key].Item1}</td><td>{Pipe1.EmailStatus[key].Item2}</td></tr>";
+            }
+
+            html += "</table>";
+
+            #endregion
+
             await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
         }
 
@@ -315,44 +291,92 @@ namespace MelBox2Dienst
 
             Pipe1.SendSmsAsync(smsTest);
 #if DEBUG
-            MelBox2Dienst.Log.Info($"Sende Test-SMS '{smsTest.Content}' an '{smsTest.Phone}'");
+            Console.WriteLine($"Sende Test-SMS '{smsTest.Content}' an '{smsTest.Phone}'");
 #endif
             await GsmRoute(context);
         }
+        #endregion
+
+        #region Bereitschaftsplaner
 
 
-
-        [RestRoute("Get", "/overdue")]
-        public static async Task OverdueRoute(IHttpContext context)
+        [RestRoute("Get", "/guard")]
+        public static async Task GuradOverview(IHttpContext context)
         {
-            DataTable dt = Sql.SelectOverdueCustomers();
-            string html = "<h4>Meldeweg&uuml;berwachung</h4>";
-               
-            if (dt.Rows.Count == 0)
-                html += "<div class='alert alert-success alert-dismissible'>\r\n" +
-                    "  <button type='button' class='btn-close' data-bs-dismiss='alert'></button>" +
-                    "  <strong>Kein Handlungsbedarf</strong> Alle überwachten Absender sind aktiv.\r\n</div>";
-            else
-                html += "<div class='alert alert-danger'>\r\n" +
-                    "  <strong>Handlungsbedarf!</strong> Diese Absender haben innerhalb der maximalen Inaktivitätszeit keine Meldung abgesetzt:<br/>" +
-                    "  <strong>Meldeweg prüfen!</strong> <br/>" +
-                    "  <ol>" +
-                    "   <li>Störweiterleitung vor Ort eingeschaltet?</li>" +
-                    "   <li>Testmeldung über Visu erzeugen und Empfang prüfen</li>" +
-                    "   <li>Bei E-Mail: Kunden-IT informieren</li>" +
-                    "   <li>Bei SMS: GSM-Modem prüfen. Mobilfunkempfang ok?</li> " +                    
-                    "</ol>\r\n" + 
-                    Html.ConvertDataTable(dt) +
-                    "</div>";
+            string html = string.Empty;
 
-            html += "<hr/><h4>&Uuml;berwachte Absender:</h4>" +
-            Html.ConvertDataTable(
-                Sql.SelectWatchedCustomers(), 
-                new Dictionary<string, string>() { { "Id", "customer" } }
-                );
+            #region Filter setzen            
+            DataTable dataTable;// = new DataTable();
+            if (!context.Request.QueryString.HasKeys())
+            {
+                html += "<h4>Rufbereitschaft</h4>" +
+                        $"<div class='container'>Rufannahme geht zurzeit an <span class='badge bg-secondary'>{Sql.CallRelayPhone}</span></div>" +
+                        $"<div class='container'>{(Sql.IsBuisinesTimeNow() ? "keine SMS-Weiterleitung während der Geschäftszeiten" : "SMS-Weiterleitung an die Rufbereitschaft aktiv")}</div>";
+
+                dataTable = Sql.SelectAllGuards();
+                html += Html.GuardCalender(dataTable);
+            }
+            else if (uint.TryParse(context.Request.QueryString.Get("id"), out uint shiftId))
+            {
+                dataTable = Sql.SelectGuardById(shiftId);
+                html += Html.GuardFormUpdate(dataTable);
+            }
+            else if (context.Request.QueryString.Get("datum").Length > 0 && DateTime.TryParse(context.Request.QueryString.Get("datum"), out DateTime date))
+            {
+                Console.WriteLine("Neue Bereitschaft erstellen ab " + date);
+
+                if (date.CompareTo(DateTime.Now.AddYears(-10)) < 0) date = DateTime.Now.Date; //Älter als 10 Jahre = ungültig
+                if (date.CompareTo(DateTime.Now) < 0) date = DateTime.Now.Date; //Die Vergangenheit kann nicht geändert werden
+
+                Console.WriteLine("Rufe auf: GuardFormNew()");
+                html += Html.GuardFormNew(date, 1); //TODO: Übergabe der Id der Service-Person
+            }
+
+            #endregion
+            //#if DEBUG
+            //            Console.WriteLine(date);
+            //#endif
 
             await context.Response.SendResponseAsync(Html.Sceleton(html)).ConfigureAwait(false);
         }
+
+        /// <summary>
+        /// Ändert die Stammdaten eines Kunden in der Datenbank von einem Formular
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        [RestRoute("Post", "/guard/update")]
+        public async Task UpdateGuard(IHttpContext context)
+        {
+            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
+            Sql.UpdateGuard(formContent);
+
+            context.Request.QueryString.Add("id", formContent["Id"]);
+            await GuradOverview(context);
+        }
+
+        [RestRoute("Post", "/guard/create")]
+        public async Task CreateGuard(IHttpContext context)
+        {
+            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
+            Sql.CreateGuard(formContent);
+
+            await GuradOverview(context);
+        }
+
+
+        [RestRoute("Post", "/guard/delete")]
+        public async Task DeleteGuard(IHttpContext context)
+        {
+            Dictionary<string, string> formContent = (Dictionary<string, string>)context.Locals["FormData"];
+            Sql.DeleteGuard(formContent);
+
+            await GuradOverview(context);
+        }
+
+
+        #endregion
+
 
         [RestRoute]
         public static async Task Home(IHttpContext context)
